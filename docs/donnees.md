@@ -73,13 +73,30 @@ Une ligne par paire candidate issue du blocking : canaux qui l'ont proposée, sc
 | Entités après dédup exacte | 235 360 (496 729 lignes, 53 % de copies) |
 | Paires candidates | 280 377 (canaux : nom 256 267, email 23 311, téléphone 1 668) |
 | Blocs écartés car trop gros | 351 emails, 3 174 tokens de nom |
-| Zone de fusion | 351 |
-| Zone grise | 56 729 |
+| Zone de fusion (seuil calibré 0,90) | 184 |
+| Zone grise | 56 896 |
 | Rejets | 223 297 |
 | Fusions refusées par le garde-fou anti méga-cluster | 0 |
-| Entreprises finales (baseline) | 235 009 |
+| Entreprises finales | 235 176 |
 
-Les seuils du score sont provisoires : un échantillon stratifié de 420 paires (`data/gold_pairs.csv`, privé) attend son annotation manuelle pour mesurer précision et rappel, calibrer les seuils et évaluer l'arbitrage LLM de la zone grise.
+### Jeu de vérité et calibration (2026-07-16)
+
+Échantillon stratifié de 420 paires candidates (140 par zone d'origine), annoté avec des règles explicites :
+
+- **oui** : même entreprise (variantes typographiques, réordonnancement de mots, suffixe ajouté sur un cœur de nom distinctif, mention « radié » suivie d'une réinscription), localisation compatible ;
+- **non** : cœurs de nom distinctifs différents, même si les mots génériques ou une expression pieuse commune coïncident (« GLOIRE DE DIEU », « CHEZ X ») ;
+- **incertain** : mêmes noms de famille ou marques mais succursale, homonyme ou membre de famille plausible ; en attente d'arbitrage humain.
+
+Résultat : 58 oui, 270 non, 92 incertain. Annotation réalisée par revue assistée (l'assistant a proposé chaque label suivant les règles ci-dessus, les 92 incertains sont réservés à l'arbitrage humain). Les incertains sont écartés des métriques.
+
+| Métrique (paires tranchées) | Seuil initial 0,82 | Seuil calibré 0,90 |
+|---|---:|---:|
+| Précision de la zone de fusion | 51,8 % | **82,5 %** |
+| Rappel parmi les candidates | 98,3 % | 81,0 % |
+
+La courbe par bande de score a dicté la coupure : 0 % de vraies paires sous 0,80, 20 % dans [0,80, 0,90), 82,5 % dans [0,90, 1,0]. Les erreurs restantes de la zone de fusion sont concentrées sur les noms identiques mais génériques (enseignes pieuses partagées par des commerces différents) : c'est le travail de l'étape d'arbitrage.
+
+Limites assumées : le rappel est mesuré parmi les paires candidates (une vraie paire jamais proposée par le blocking est invisible) ; le seuil a été calibré sur l'ensemble de l'échantillon, une validation sur un jeu frais est prévue avec l'arbitrage LLM.
 
 ### Divers
 

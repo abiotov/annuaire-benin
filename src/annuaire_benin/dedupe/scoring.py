@@ -32,7 +32,11 @@ WEIGHT_NAME = 0.65
 WEIGHT_CONTACT = 0.20
 WEIGHT_GEO = 0.15
 
-MERGE_THRESHOLD = 0.82
+# Seuil calibré sur le jeu de vérité du 2026-07-16 (420 paires annotées) :
+# la bande [0,82, 0,90) ne contenait que 20 % de vraies paires, la bande
+# [0,90, 1,0] en contient 82,5 %. L'ancien seuil de 0,82 donnait 51,8 % de
+# précision en zone de fusion ; voir docs/donnees.md.
+MERGE_THRESHOLD = 0.90
 REJECT_THRESHOLD = 0.60
 MIN_NAME_SIM_FOR_MERGE = 0.70
 # En dessous de ce plancher, les noms n'ont rien en commun : la paire est

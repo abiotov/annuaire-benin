@@ -29,9 +29,11 @@ Les annuaires d'entreprises d'Afrique de l'Ouest existent, mais à l'état brut 
 | Emails syntaxiquement valides | 99,7 % |
 | Entités après déduplication exacte | 235 360 (soit 53 % de copies inter-onglets) |
 | Paires candidates au rapprochement flou | 280 377 (sur 27 milliards possibles) |
-| Fusions automatiques sûres (baseline) | 351 |
-| Paires en zone grise, en attente d'arbitrage | 56 729 |
-| Tests | 56, tous verts |
+| Jeu de vérité annoté | 420 paires (58 oui, 270 non, 92 à arbitrer) |
+| Précision de la fusion automatique (mesurée, après calibration) | 82,5 % (contre 51,8 % avant) |
+| Fusions automatiques appliquées | 184 |
+| Paires en zone grise, en attente d'arbitrage | 56 896 |
+| Tests | 59, tous verts |
 
 ## L'anomalie qui valide l'approche
 
@@ -72,7 +74,7 @@ Trois règles structurantes :
 
 - [x] **Étape 1 : ingestion et validation.** Lecture des 9 onglets Excel, normalisation des téléphones vers E.164 (migration 2024, zéros de tête perdus, indicatifs pays, cellules multi-numéros) et des emails, chargement SQLite avec bilan chiffré. 496 729 lignes en 50 s.
 - [x] **Étape 2a : déduplication exacte.** Regroupement des copies strictes inter-onglets sur la clé (nom canonique, téléphone, email) : 496 729 lignes deviennent 235 360 entités en 56 s, chaque ligne brute reliée à son entité.
-- [ ] **Étape 2b : rapprochement flou.** Baseline livrée : blocking multi-canaux (280 377 paires candidates), score décomposé (noms, contact pondéré par rareté, géographie), clustering avec garde-fou anti méga-cluster. 351 fusions sûres appliquées, 56 729 paires en zone grise. Reste : annotation du jeu de vérité (420 paires échantillonnées), calibration des seuils, arbitrage LLM de la zone grise mesuré contre le baseline.
+- [ ] **Étape 2b : rapprochement flou.** Baseline livrée et **calibrée sur un jeu de vérité de 420 paires annotées** : blocking multi-canaux (280 377 paires candidates), score décomposé, clustering avec garde-fou. Le premier seuil de fusion (0,82) affichait 51,8 % de précision mesurée ; la courbe par bande de score a dicté le seuil 0,90, qui donne **82,5 % de précision pour 81 % de rappel** parmi les candidates. 184 fusions appliquées. Reste : arbitrage des 92 paires incertaines, arbitrage LLM de la zone grise (56 896 paires) mesuré contre le baseline, et un jeu de test frais pour valider sans biais de calibration.
 - [ ] **Étape 3 : classification des activités.** Le champ « activité » en texte libre vers une nomenclature de secteurs, taux d'erreur mesuré sur échantillon annoté.
 - [ ] **Étape 4 : atlas économique.** Carte interactive et statistiques par commune, quartier et secteur, publiables car agrégées.
 - [ ] **Étape 5 : recherche en langage naturel.** Interroger la base propre en français.

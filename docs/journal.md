@@ -1,5 +1,13 @@
 # Journal du projet
 
+## 2026-07-16 (suite) : jeu de vérité, évaluation et calibration
+
+- Annotation des 420 paires échantillonnées (règles explicites, voir docs/donnees.md) : 58 oui, 270 non, 92 incertain réservés à l'arbitrage humain.
+- Nouveau module `dedupe/evaluate.py` : précision de la zone de fusion, rappel parmi les candidates, taux de vraies paires par bande de score.
+- Verdict du premier réglage : 51,8 % de précision en zone de fusion, la moitié des fusions automatiques étaient fausses. La bande [0,80, 0,90) ne contenait que 20 % de vraies paires.
+- Calibration : seuil de fusion remonté de 0,82 à 0,90 (justifié par la courbe par bande, commentaire dans scoring.py). Re-run complet : précision mesurée 82,5 %, rappel 81 %, 184 fusions appliquées, 235 176 entreprises finales.
+- Les faux positifs restants sont des enseignes génériques identiques (expressions pieuses) : cible de l'étape d'arbitrage LLM, avec un jeu de test frais pour éviter le biais de calibration.
+
 ## 2026-07-16 (suite) : étape 2, déduplication (baseline)
 
 - **2a, dédup exacte** (`dedupe/exact.py`) : 496 729 lignes regroupées en 235 360 entités en 56 s sur la clé (nom canonique, téléphone, email) ; table `entities`, chaque ligne brute reliée par `entity_id`.
