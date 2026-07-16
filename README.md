@@ -1,63 +1,121 @@
-# annuaire-benin
+<div align="center">
 
-Pipeline de nettoyage, de déduplication et d'exploration de l'annuaire des entreprises du Bénin : environ 235 000 fiches brutes (nom, activité en texte libre, commune, quartier, téléphone, email) transformées en une base propre, mesurée et interrogeable.
+# 🇧🇯 Annuaire Bénin
 
-## Le problème
+**L'annuaire national des entreprises du Bénin : 500 000 lignes brutes transformées en une base propre, mesurée et interrogeable.**
 
-Les données sources proviennent de l'annuaire national des établissements et sociétés. Elles sont réelles, massives et sales :
+[![CI](https://github.com/abiotov/annuaire-benin/actions/workflows/ci.yml/badge.svg)](https://github.com/abiotov/annuaire-benin/actions/workflows/ci.yml)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
+[![Licence : MIT](https://img.shields.io/badge/licence-MIT-green.svg)](LICENSE)
+[![Code style : ruff](https://img.shields.io/badge/code%20style-ruff-261230.svg)](https://github.com/astral-sh/ruff)
 
-- la même entreprise apparaît dans plusieurs onglets, avec des variantes de nom ;
-- le champ « activité » est du texte libre en français, sans nomenclature ;
-- les numéros de téléphone mélangent l'ancien plan à 8 chiffres et le nouveau plan à 10 chiffres (migration nationale du 30 novembre 2024), avec des zéros de tête perdus et des formats variés ;
-- les emails contiennent fautes de frappe et valeurs fantaisistes.
+*Documentation en français : le projet porte sur des données béninoises.*
 
-Ce projet traite chacun de ces problèmes avec des résultats chiffrés à chaque étape.
+</div>
+
+---
+
+Les annuaires d'entreprises d'Afrique de l'Ouest existent, mais à l'état brut : des exports Excel où la même société apparaît quatre fois, où l'activité est une phrase libre, où les numéros de téléphone mélangent deux plans de numérotation nationaux. Ce projet prend un tel export (celui du Bénin, environ 235 000 entreprises réelles) et le transforme, étape mesurée par étape mesurée, en une base exploitable : chaque conversion est comptée, chaque anomalie est qualifiée, chaque fusion sera prouvée.
+
+## Les chiffres
+
+| Mesure | Valeur |
+|---|---:|
+| Lignes brutes ingérées | 496 729 |
+| Durée de l'ingestion complète | 50 s |
+| Entreprises uniques estimées | ~235 000 |
+| Téléphones convertis au plan 2024 (E.164) | 386 893 (77,9 %) |
+| Numéros tronqués par l'export source, détectés et qualifiés | 109 780 (22,1 %) |
+| Emails syntaxiquement valides | 99,7 % |
+| Tests | 38, tous verts |
+
+## L'anomalie qui valide l'approche
+
+Le Bénin est passé le 30 novembre 2024 d'un plan de numérotation à 8 chiffres à un plan à 10 chiffres. Or **toutes** les valeurs téléphone de la source font exactement 8 caractères, et 22 % d'entre elles commencent par « 01 », un préfixe qui n'existait pas dans l'ancien plan. Deux indices prouvent que ce sont des numéros du nouveau plan **tronqués par l'export source** : l'ancien plan n'autorisait aucun numéro commençant par 0, et le chiffre qui suit leur « 01 » reproduit exactement la distribution des premiers chiffres des mobiles de l'ancien plan.
+
+Ces 109 780 numéros sont irrécupérables sans re-collecte. Un nettoyage naïf les aurait « convertis » en numéros faux ; le pipeline les marque `suspect_01_court` et les chiffre. C'est le principe du projet : **jamais de rejet silencieux, jamais de donnée inventée**. Détail de l'analyse dans [docs/donnees.md](docs/donnees.md).
 
 ## Architecture
 
-```
-source Excel (privée, jamais commitée)
-        |
-   [1] Ingestion + validation des contacts      <- src/annuaire_benin/ingest.py
-        |                                          src/annuaire_benin/contacts/
-   [2] Déduplication (record linkage)           <- à venir
-        |
-   [3] Classification des activités             <- à venir
-        |
-   base propre (SQLite)
-        |
-        +-- [4] Atlas économique (carte interactive)      <- à venir
-        +-- [5] Recherche en langage naturel              <- à venir
+```mermaid
+flowchart TB
+    X["Classeur Excel source<br/>496 729 lignes (privé, jamais commité)"] --> I
+
+    subgraph P["Pipeline (chaque étape rejouable et mesurée)"]
+        I["1 · Ingestion + validation<br/>téléphones E.164, emails, statuts explicites"]
+        D["2 · Déduplication<br/>record linkage, précision/rappel mesurés"]
+        C["3 · Classification des activités<br/>texte libre vers nomenclature de secteurs"]
+        I --> D --> C
+    end
+
+    C --> B[("Base propre SQLite<br/>~235 000 entreprises")]
+    B --> A["4 · Atlas économique<br/>carte interactive, données agrégées"]
+    B --> R["5 · Recherche en langage naturel"]
 ```
 
-Le détail des choix techniques est dans [docs/architecture.md](docs/architecture.md), le dictionnaire des données dans [docs/donnees.md](docs/donnees.md), et l'historique du projet dans [docs/journal.md](docs/journal.md).
+Trois règles structurantes :
+
+- **Chaque anomalie a un nom.** La normalisation ne retourne jamais un simple échec : `migre`, `deja_migre`, `zero_restaure`, `suspect_01_court`, `invalide`, `vide`. La qualité de la source se mesure au lieu de se subir.
+- **Chaque étape produit des chiffres.** Taux de conversion, précision et rappel des fusions, taux d'erreur de classification : le README d'un pipeline de données doit se lire comme un rapport d'expérience.
+- **Les données personnelles ne quittent jamais la machine.** Le dépôt publie le code, les métriques agrégées et des exemples fictifs ; le fichier source et `data/` sont exclus de git.
 
 ## État d'avancement
 
-| Étape | Statut |
-|---|---|
-| 1. Ingestion et validation des contacts | Fait : 496 729 lignes chargées, 100 % des contacts qualifiés, voir [docs/donnees.md](docs/donnees.md) |
-| 2. Déduplication | À venir |
-| 3. Classification des activités | À venir |
-| 4. Atlas économique | À venir |
-| 5. Recherche en langage naturel | À venir |
+- [x] **Étape 1 : ingestion et validation.** Lecture des 9 onglets Excel, normalisation des téléphones vers E.164 (migration 2024, zéros de tête perdus, indicatifs pays, cellules multi-numéros) et des emails, chargement SQLite avec bilan chiffré. 496 729 lignes en 50 s.
+- [ ] **Étape 2 : déduplication.** Dédup exacte SQL (53 % du fichier sont des copies strictes inter-onglets), puis record linkage : blocking multi-canaux, score de similarité, zone grise arbitrée par LLM et mesurée contre le baseline, clustering avec garde-fous anti sur-fusion. Jeu de vérité annoté à la main, précision et rappel publiés.
+- [ ] **Étape 3 : classification des activités.** Le champ « activité » en texte libre vers une nomenclature de secteurs, taux d'erreur mesuré sur échantillon annoté.
+- [ ] **Étape 4 : atlas économique.** Carte interactive et statistiques par commune, quartier et secteur, publiables car agrégées.
+- [ ] **Étape 5 : recherche en langage naturel.** Interroger la base propre en français.
+
+L'historique détaillé est dans [docs/journal.md](docs/journal.md).
+
+## Structure du projet
+
+```text
+├── src/annuaire_benin/
+│   ├── contacts/            # normalisation téléphones + emails (future lib PyPI autonome)
+│   │   ├── phone.py         #   plan 2024, E.164, statuts explicites
+│   │   └── emails.py        #   validation syntaxique, normalisation
+│   └── ingest.py            # Excel -> SQLite, bilan chiffré par onglet et par statut
+├── tests/                   # pytest, valeurs exclusivement fictives
+├── docs/
+│   ├── architecture.md      # choix techniques, cas de normalisation, confidentialité
+│   ├── donnees.md           # dictionnaire des données, volumétrie, constats qualité
+│   └── journal.md           # journal de bord du projet
+└── .github/workflows/ci.yml # lint (ruff) + tests (pytest) sur chaque push
+```
 
 ## Démarrage rapide
 
 ```bash
+git clone https://github.com/abiotov/annuaire-benin.git
+cd annuaire-benin
 pip install -e ".[dev]"
 
-# Lancer les tests
-pytest
+pytest                # 38 tests
+ruff check .          # lint
 
-# Ingérer le fichier source vers SQLite
+# Ingérer un classeur source vers SQLite
 python -m annuaire_benin.ingest chemin/vers/source.xlsx --db data/annuaire.db
 ```
 
+Sans le fichier source (privé), les tests et le code restent entièrement exécutables : ils n'en dépendent jamais. Un générateur d'échantillons synthétiques reproduisant les défauts de la source est prévu pour rendre le pipeline complet rejouable par n'importe qui.
+
 ## Confidentialité des données
 
-Les données sources contiennent des informations personnelles (emails, téléphones). Elles ne sont **jamais** commitées dans ce dépôt : le dossier `data/` est ignoré par git et le fichier source reste hors du dépôt. Seuls le code, les métriques agrégées et des échantillons synthétiques sont publiés.
+La source contient des données personnelles (téléphones, emails de vraies entreprises). Règles absolues, vérifiées à chaque commit :
+
+- le fichier source et le dossier `data/` ne sont jamais commités (`.gitignore`) ;
+- aucune valeur réelle dans le code, les tests, les docs ou les messages de commit : les exemples utilisent des numéros non attribués et des domaines `example.*` ;
+- seules des statistiques agrégées sont publiées.
+
+## Décisions de conception
+
+- **Pourquoi SQLite comme pivot :** un fichier unique, zéro serveur, requêtable par tout outil ; largement suffisant pour un demi-million de lignes.
+- **Pourquoi des statuts plutôt qu'un booléen valide/invalide :** 22 % de la source est irrécupérable pour une raison précise ; la dire vaut mieux que la masquer.
+- **Pourquoi `contacts/` est isolé :** aucune dépendance vers le reste du projet, API stable, tests exhaustifs ; le sous-paquet sera extrait et publié sur PyPI.
+- **Pourquoi un jeu de vérité manuel avant la dédup :** un rapprochement sans précision ni rappel mesurés est une opinion, pas un résultat.
 
 ## Licence
 
-MIT.
+[MIT](LICENSE)

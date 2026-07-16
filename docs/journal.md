@@ -1,5 +1,12 @@
 # Journal du projet
 
+## 2026-07-16 (suite) : publication et vitrine
+
+- Dépôt publié sur GitHub (public) : https://github.com/abiotov/annuaire-benin, avec description et topics.
+- CI GitHub Actions : ruff (lint) + pytest sur chaque push.
+- Linter ruff ajouté au projet (config dans pyproject.toml), base de code conforme.
+- README refondu en vitrine : chiffres clés, analyse de l'anomalie des numéros tronqués, diagramme d'architecture, roadmap, décisions de conception.
+
 ## 2026-07-16 : naissance du projet et étape 1
 
 - Définition du projet : transformer l'annuaire brut des entreprises du Bénin (environ 235 000 fiches, 9 onglets Excel qui se recoupent) en une base propre et interrogeable, en 5 étapes mesurées (ingestion/validation, déduplication, classification des activités, atlas économique, recherche en langage naturel).
