@@ -1,0 +1,12 @@
+# Données réelles : ne jamais commiter (contiennent des données personnelles).
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+.pytest_cache/
