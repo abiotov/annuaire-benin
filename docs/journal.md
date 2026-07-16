@@ -1,5 +1,17 @@
 # Journal du projet
 
+## 2026-07-16 (suite) : étape 2, déduplication (baseline)
+
+- **2a, dédup exacte** (`dedupe/exact.py`) : 496 729 lignes regroupées en 235 360 entités en 56 s sur la clé (nom canonique, téléphone, email) ; table `entities`, chaque ligne brute reliée par `entity_id`.
+- **2b, rapprochement flou baseline** :
+  - `dedupe/blocking.py` : 280 377 paires candidates par trois canaux (téléphone valide, email, mot de nom rare), plafonds de taille de bloc, tout écart compté.
+  - `dedupe/scoring.py` : score décomposé (similarité de noms avec cœur discriminant, contact pondéré par rareté, géographie). Double plancher de similarité de nom : jamais de fusion, ni même de zone grise, entre noms sans rapport, même à contact partagé (cas du propriétaire de plusieurs entreprises).
+  - `dedupe/clustering.py` : union-find, garde-fou anti méga-cluster (jamais déclenché sur ce run, tous les clusters font 2).
+  - Résultat : 351 fusions sûres, 56 729 paires en zone grise, 235 009 entreprises finales.
+- Échantillon de 420 paires stratifié par zone généré dans `data/gold_pairs.csv` (privé) pour l'annotation manuelle.
+- Leçon de calibration : les premiers seuils étaient réglés à l'intuition et deux tests l'ont sanctionné ; les similarités réelles ont été mesurées (rapidfuzz) avant de fixer les règles. Les seuils restent provisoires jusqu'au jeu de vérité.
+- À faire : annotation du jeu de vérité, précision/rappel, calibration, arbitrage LLM de la zone grise mesuré contre le baseline.
+
 ## 2026-07-16 (suite) : publication et vitrine
 
 - Dépôt publié sur GitHub (public) : https://github.com/abiotov/annuaire-benin, avec description et topics.

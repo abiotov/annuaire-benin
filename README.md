@@ -27,7 +27,11 @@ Les annuaires d'entreprises d'Afrique de l'Ouest existent, mais à l'état brut 
 | Téléphones convertis au plan 2024 (E.164) | 386 893 (77,9 %) |
 | Numéros tronqués par l'export source, détectés et qualifiés | 109 780 (22,1 %) |
 | Emails syntaxiquement valides | 99,7 % |
-| Tests | 38, tous verts |
+| Entités après déduplication exacte | 235 360 (soit 53 % de copies inter-onglets) |
+| Paires candidates au rapprochement flou | 280 377 (sur 27 milliards possibles) |
+| Fusions automatiques sûres (baseline) | 351 |
+| Paires en zone grise, en attente d'arbitrage | 56 729 |
+| Tests | 56, tous verts |
 
 ## L'anomalie qui valide l'approche
 
@@ -67,7 +71,8 @@ Trois règles structurantes :
 ## État d'avancement
 
 - [x] **Étape 1 : ingestion et validation.** Lecture des 9 onglets Excel, normalisation des téléphones vers E.164 (migration 2024, zéros de tête perdus, indicatifs pays, cellules multi-numéros) et des emails, chargement SQLite avec bilan chiffré. 496 729 lignes en 50 s.
-- [ ] **Étape 2 : déduplication.** Dédup exacte SQL (53 % du fichier sont des copies strictes inter-onglets), puis record linkage : blocking multi-canaux, score de similarité, zone grise arbitrée par LLM et mesurée contre le baseline, clustering avec garde-fous anti sur-fusion. Jeu de vérité annoté à la main, précision et rappel publiés.
+- [x] **Étape 2a : déduplication exacte.** Regroupement des copies strictes inter-onglets sur la clé (nom canonique, téléphone, email) : 496 729 lignes deviennent 235 360 entités en 56 s, chaque ligne brute reliée à son entité.
+- [ ] **Étape 2b : rapprochement flou.** Baseline livrée : blocking multi-canaux (280 377 paires candidates), score décomposé (noms, contact pondéré par rareté, géographie), clustering avec garde-fou anti méga-cluster. 351 fusions sûres appliquées, 56 729 paires en zone grise. Reste : annotation du jeu de vérité (420 paires échantillonnées), calibration des seuils, arbitrage LLM de la zone grise mesuré contre le baseline.
 - [ ] **Étape 3 : classification des activités.** Le champ « activité » en texte libre vers une nomenclature de secteurs, taux d'erreur mesuré sur échantillon annoté.
 - [ ] **Étape 4 : atlas économique.** Carte interactive et statistiques par commune, quartier et secteur, publiables car agrégées.
 - [ ] **Étape 5 : recherche en langage naturel.** Interroger la base propre en français.

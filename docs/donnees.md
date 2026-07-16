@@ -56,6 +56,31 @@ Ces numéros sont irrécupérables sans re-collecte : le pipeline les marque au 
 
 Validation purement syntaxique à ce stade : elle ne dit pas si la boîte existe. Une vérification des domaines (MX) est envisageable plus tard.
 
+## Tables de l'étape 2
+
+### `entities` (déduplication exacte, 2a)
+
+Une ligne par groupe de fiches strictement identiques sur la clé (nom canonique, téléphone brut, email normalisé). Colonnes : nom canonique (le plus long des membres), `name_norm`, contacts, listes JSON des communes / quartiers / segments / onglets d'origine, `member_rows` (nombre de lignes brutes regroupées), `cluster_id` (rempli par 2b). Chaque ligne de `raw_contacts` porte l'`entity_id` de son entité.
+
+### `candidate_pairs` (rapprochement flou, 2b)
+
+Une ligne par paire candidate issue du blocking : canaux qui l'ont proposée, score décomposé (`name_sim`, `contact`, `geo`), score total et zone (`fusion`, `zone_grise`, `rejet`).
+
+### Volumétrie de l'étape 2 (run du 2026-07-16)
+
+| Mesure | Valeur |
+|---|---:|
+| Entités après dédup exacte | 235 360 (496 729 lignes, 53 % de copies) |
+| Paires candidates | 280 377 (canaux : nom 256 267, email 23 311, téléphone 1 668) |
+| Blocs écartés car trop gros | 351 emails, 3 174 tokens de nom |
+| Zone de fusion | 351 |
+| Zone grise | 56 729 |
+| Rejets | 223 297 |
+| Fusions refusées par le garde-fou anti méga-cluster | 0 |
+| Entreprises finales (baseline) | 235 009 |
+
+Les seuils du score sont provisoires : un échantillon stratifié de 420 paires (`data/gold_pairs.csv`, privé) attend son annotation manuelle pour mesurer précision et rappel, calibrer les seuils et évaluer l'arbitrage LLM de la zone grise.
+
 ### Divers
 
 - Aucune cellule ne contient plusieurs numéros (le cas est géré par le code car il est classique dans ce genre de source, mais il ne se présente pas ici).
