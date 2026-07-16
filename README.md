@@ -31,9 +31,14 @@ Les annuaires d'entreprises d'Afrique de l'Ouest existent, mais à l'état brut 
 
 ## L'anomalie qui valide l'approche
 
-Le Bénin est passé le 30 novembre 2024 d'un plan de numérotation à 8 chiffres à un plan à 10 chiffres. Or **toutes** les valeurs téléphone de la source font exactement 8 caractères, et 22 % d'entre elles commencent par « 01 », un préfixe qui n'existait pas dans l'ancien plan. Deux indices prouvent que ce sont des numéros du nouveau plan **tronqués par l'export source** : l'ancien plan n'autorisait aucun numéro commençant par 0, et le chiffre qui suit leur « 01 » reproduit exactement la distribution des premiers chiffres des mobiles de l'ancien plan.
+Le 30 novembre 2024, le Bénin est passé d'un plan de numérotation à 8 chiffres à un plan à 10 chiffres : chaque numéro existant a reçu le préfixe « 01 » ([communiqué ARCEP Bénin](https://arcep.bj/a-partir-de-30-novembre-2024-les-numeros-de-telephone-au-benin-passent-de-08-a-10-chiffres/)). Un numéro béninois complet fait donc aujourd'hui 10 chiffres : « 01 » suivi de l'ancien numéro.
 
-Ces 109 780 numéros sont irrécupérables sans re-collecte. Un nettoyage naïf les aurait « convertis » en numéros faux ; le pipeline les marque `suspect_01_court` et les chiffre. C'est le principe du projet : **jamais de rejet silencieux, jamais de donnée inventée**. Détail de l'analyse dans [docs/donnees.md](docs/donnees.md).
+Dans le fichier source, toutes les valeurs téléphone font exactement 8 caractères. Deux cas, deux traitements :
+
+- **386 893 numéros (77,9 %)** sont des numéros de l'ancien plan (ils commencent par 2, 4, 5, 6 ou 9). Le pipeline ajoute le préfixe 01 : convertis, utilisables.
+- **109 780 numéros (22,1 %)** commencent par « 01 » tout en ne faisant que 8 chiffres, alors qu'un numéro commençant par 01 doit en faire 10. Il leur manque les 2 derniers chiffres, coupés par l'outil qui a produit l'export (preuve : l'ancien plan n'autorisait aucun numéro commençant par 0, et le chiffre qui suit leur « 01 » reproduit exactement la distribution des mobiles de l'ancien plan). On ne peut pas deviner 2 chiffres manquants : le pipeline **garde la fiche** (nom, email, commune restent exploitables) et marque le numéro `suspect_01_court` au lieu de fabriquer un faux numéro.
+
+Rien n'est supprimé : chaque ligne reste en base avec un statut qui dit exactement ce que vaut son téléphone. Un nettoyage naïf aurait « converti » ces 109 780 numéros en numéros faux ; c'est le principe du projet : **jamais de rejet silencieux, jamais de donnée inventée**. Détail de l'analyse dans [docs/donnees.md](docs/donnees.md).
 
 ## Architecture
 
