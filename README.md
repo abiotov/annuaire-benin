@@ -33,7 +33,8 @@ Les annuaires d'entreprises d'Afrique de l'Ouest existent, mais à l'état brut 
 | Précision de la fusion automatique (mesurée, après calibration) | 82,5 % (contre 51,8 % avant) |
 | Fusions automatiques appliquées | 184 |
 | Paires en zone grise, en attente d'arbitrage | 56 896 |
-| Tests | 59, tous verts |
+| Entités classées par secteur (25 secteurs) | 235 360 (100 %) |
+| Tests | 62, tous verts |
 
 ## L'anomalie qui valide l'approche
 
@@ -75,7 +76,7 @@ Trois règles structurantes :
 - [x] **Étape 1 : ingestion et validation.** Lecture des 9 onglets Excel, normalisation des téléphones vers E.164 (migration 2024, zéros de tête perdus, indicatifs pays, cellules multi-numéros) et des emails, chargement SQLite avec bilan chiffré. 496 729 lignes en 50 s.
 - [x] **Étape 2a : déduplication exacte.** Regroupement des copies strictes inter-onglets sur la clé (nom canonique, téléphone, email) : 496 729 lignes deviennent 235 360 entités en 56 s, chaque ligne brute reliée à son entité.
 - [ ] **Étape 2b : rapprochement flou.** Baseline livrée et **calibrée sur un jeu de vérité de 420 paires annotées** : blocking multi-canaux (280 377 paires candidates), score décomposé, clustering avec garde-fou. Le premier seuil de fusion (0,82) affichait 51,8 % de précision mesurée ; la courbe par bande de score a dicté le seuil 0,90, qui donne **82,5 % de précision pour 81 % de rappel** parmi les candidates. 184 fusions appliquées. Reste : arbitrage des 92 paires incertaines, arbitrage LLM de la zone grise (56 896 paires) mesuré contre le baseline, et un jeu de test frais pour valider sans biais de calibration.
-- [ ] **Étape 3 : classification des activités.** Le champ « activité » en texte libre vers une nomenclature de secteurs, taux d'erreur mesuré sur échantillon annoté.
+- [x] **Étape 3 : classification des activités.** Le profilage a révélé que le champ « activité » n'est pas du texte libre mais un vocabulaire fermé de **334 valeurs** : la classification devient une table de correspondance exhaustive, relue en entier, vers une taxonomie de 25 secteurs (`classify/mapping.csv`, auditable dans le repo). 235 360 entités classées, couverture 100 %, aucune valeur devinée. Le fine-tuning prévu n'avait plus d'objet : constater qu'un problème est plus simple que prévu fait aussi partie du travail.
 - [ ] **Étape 4 : atlas économique.** Carte interactive et statistiques par commune, quartier et secteur, publiables car agrégées.
 - [ ] **Étape 5 : recherche en langage naturel.** Interroger la base propre en français.
 

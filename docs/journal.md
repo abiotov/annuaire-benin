@@ -1,5 +1,13 @@
 # Journal du projet
 
+## 2026-07-17 : étape 3, classification par secteur
+
+- Profilage du champ « activité » : vocabulaire fermé de 334 valeurs de registre (et non du texte libre). Conséquence assumée : ni LLM ni fine-tuning, une table de correspondance exhaustive suffit et elle est auditable.
+- Taxonomie de 25 secteurs (`classify/taxonomy.py`), commerce détaillé par famille de produits.
+- Table `classify/mapping.csv` générée par règles puis relue en entier ; pièges corrigés à la relecture : « trans-formation » capturé par « formation » (932 fiches d'agro-industrie parties en éducation), « b-usine-ss » capturé par « usine » (1 328 « Agro Business » partis en industrie), « jeux vidéos » capturé par « video ».
+- `classify/run.py` : activité majoritaire par entité, secteur écrit dans `entities`, distribution imprimée. 235 360 entités classées, couverture 100 %, aucune valeur devinée.
+- 62 tests verts. L'arbitrage LLM de la zone grise (étape 2) reste en attente d'une clé API.
+
 ## 2026-07-16 (suite) : jeu de vérité, évaluation et calibration
 
 - Annotation des 420 paires échantillonnées (règles explicites, voir docs/donnees.md) : 58 oui, 270 non, 92 incertain réservés à l'arbitrage humain.

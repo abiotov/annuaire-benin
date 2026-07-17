@@ -98,6 +98,28 @@ La courbe par bande de score a dicté la coupure : 0 % de vraies paires sous 0,8
 
 Limites assumées : le rappel est mesuré parmi les paires candidates (une vraie paire jamais proposée par le blocking est invisible) ; le seuil a été calibré sur l'ensemble de l'échantillon, une validation sur un jeu frais est prévue avec l'arbitrage LLM.
 
+## Étape 3 : classification par secteur
+
+Découverte du profilage : le champ « activité » est un **vocabulaire fermé de 334 valeurs** de registre (les 10 plus fréquentes couvrent 58,6 % des entités, les 200 premières 99,1 %). La classification n'a donc pas besoin de modèle : c'est une table de correspondance exhaustive (`src/annuaire_benin/classify/mapping.csv`), construite par règles puis **relue valeur par valeur** (les pièges relevés à la relecture : « transformation » contient « formation », « business » contient « usine », « jeux vidéos » n'est pas de l'audiovisuel).
+
+Taxonomie : 25 secteurs (`classify/taxonomy.py`), le commerce de détail étant détaillé par famille de produits puisqu'il domine le registre. Chaque entité reçoit le secteur de son activité majoritaire (`entities.activity_main`, `entities.sector`).
+
+Distribution (run du 2026-07-17, 235 360 entités, couverture 100 %) :
+
+| Secteur | Entités |
+|---|---:|
+| Transfert d'argent (mobile money) | 69 318 |
+| Commerce : téléphonie et électronique | 40 027 |
+| Commerce : alimentation et boissons | 29 619 |
+| Commerce : mode, textile et beauté | 19 489 |
+| Commerce : produits agricoles et forestiers | 11 902 |
+| Commerce : quincaillerie et matériaux | 11 367 |
+| Commerce : maison, bureau et loisirs | 10 366 |
+| Informatique et numérique | 6 372 |
+| BTP et construction | 6 238 |
+| Industrie et transformation | 4 149 |
+| (15 autres secteurs) | 26 513 |
+
 ### Divers
 
 - Aucune cellule ne contient plusieurs numéros (le cas est géré par le code car il est classique dans ce genre de source, mais il ne se présente pas ici).
