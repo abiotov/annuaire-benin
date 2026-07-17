@@ -1,5 +1,14 @@
 # Journal du projet
 
+## 2026-07-17 (suite) : atlas v2, expérience enrichie
+
+- UX : recherche de commune avec autocomplétion, liens partageables (état commune/secteur/vue dans l'URL), bascule de thème (auto/clair/sombre), tableau triable par colonne, bouton « commune au hasard », badge de classement, compteurs et barres animés, tout respectant `prefers-reduced-motion`.
+- OpenStreetMap : vue de détail Leaflet (1.9.4 vendorisé dans `docs/atlas/vendor/`, aucun CDN), contour de la commune surligné, tuiles OSM chargées à la demande avec attribution ; filtre d'inversion des tuiles en thème sombre.
+- Open-Meteo : météo actuelle de la commune sélectionnée (API sans clé, CORS ouvert), cache de session 30 min, dégradation silencieuse hors ligne. OpenWeatherMap écarté : il exige une clé API, inexposable dans une page statique (décision documentée).
+- Correctif issu de la vérification visuelle : l'emoji drapeau 🇧🇯 s'affiche « BJ » sous Windows, remplacé par un drapeau SVG inline.
+- `geo.py` : emprises, centres et export GeoJSON (coordonnées arrondies, ~100 m) servis à côté de la page pour Leaflet.
+- Vérification headless des deux thèmes et d'un lien profond `#c=COTONOU` : sélection, badge et météo réelle (« couvert, 26 °C ») constatés sur capture. 68 tests verts.
+
 ## 2026-07-17 (suite) : étape 4, l'atlas économique
 
 - `atlas/aggregate.py` : comptages commune × secteur, entité comptée dans sa commune majoritaire, 104 entités non localisées comptées à part. Agrégats seulement, rien d'individuel.

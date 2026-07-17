@@ -6,7 +6,15 @@ import pytest
 
 from annuaire_benin.atlas.aggregate import aggregate
 from annuaire_benin.atlas.build import build
-from annuaire_benin.atlas.geo import ALIASES, _norm, build_paths, load_features
+from annuaire_benin.atlas.geo import (
+    ALIASES,
+    _norm,
+    bounds_of,
+    build_paths,
+    export_geojson,
+    load_features,
+    match_features,
+)
 
 
 @pytest.fixture
@@ -61,14 +69,30 @@ def test_build_paths_fails_loudly_on_unknown_commune():
         build_paths(["COMMUNE INCONNUE"])
 
 
-def test_build_writes_self_contained_page(connection, tmp_path):
+def test_bounds_and_geojson_export():
+    feature = match_features(["COTONOU"])["COTONOU"]
+    min_lat, min_lon, max_lat, max_lon = bounds_of(feature)
+    assert 6 < min_lat < max_lat < 7  # Cotonou est sur la côte
+    assert 2 < min_lon < max_lon < 3
+
+    collection = export_geojson(["COTONOU", "SEME-PODJI"])
+    names = {f["properties"]["name"] for f in collection["features"]}
+    assert names == {"COTONOU", "SEME-PODJI"}
+
+
+def test_build_writes_page_and_geojson(connection, tmp_path):
     out = tmp_path / "atlas" / "index.html"
     build(connection, out)
     page = out.read_text(encoding="utf-8")
     assert "__PAYLOAD__" not in page and "__GENERATED__" not in page
     assert "Atlas économique du Bénin" in page
     assert "COTONOU" in page and "SEME-PODJI" in page
-    # Autonome : aucun script ni style externe.
-    assert 'src="http' not in page and 'href="http' not in page.replace(
-        'href="https://www.geoboundaries.org/"', "").replace(
-        'href="https://github.com/abiotov/annuaire-benin"', "")
+    assert '"bounds"' in page and '"center"' in page
+    # Contours pour la vue OSM écrits à côté de la page.
+    assert (tmp_path / "atlas" / "communes.geojson").exists()
+    # Aucune ressource chargée depuis un domaine tiers dans le HTML :
+    # Leaflet est vendorisé, seuls les tuiles OSM et Open-Meteo sont
+    # appelés à la demande par le JS (documenté).
+    assert 'src="http' not in page
+    assert 'rel="stylesheet" href="http' not in page
+    assert 'vendor/leaflet/leaflet.js' in page

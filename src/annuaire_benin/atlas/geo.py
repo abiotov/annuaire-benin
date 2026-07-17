@@ -50,23 +50,70 @@ def _rings(geometry: dict):
             yield from polygon
 
 
+def match_features(commune_names: list[str]) -> dict[str, dict]:
+    """Contour geoBoundaries de chaque commune du registre.
+
+    Lève ValueError si une commune n'a pas de contour : une commune qui
+    disparaîtrait de la carte en silence serait un mensonge visuel.
+    """
+    by_norm = {_norm(f["properties"]["shapeName"]): f for f in load_features()}
+    matched: dict[str, dict] = {}
+    for name in commune_names:
+        feature = by_norm.get(_norm(ALIASES.get(name, name)))
+        if feature is None:
+            raise ValueError(f"commune sans contour geoBoundaries : {name!r}")
+        matched[name] = feature
+    return matched
+
+
+def bounds_of(feature: dict) -> tuple[float, float, float, float]:
+    """Emprise (min_lat, min_lon, max_lat, max_lon) d'un contour."""
+    lons, lats = [], []
+    for ring in _rings(feature["geometry"]):
+        for lon, lat in ring:
+            lons.append(lon)
+            lats.append(lat)
+    return min(lats), min(lons), max(lats), max(lons)
+
+
+def export_geojson(commune_names: list[str], decimals: int = 3) -> dict:
+    """FeatureCollection des contours, nommés comme le registre.
+
+    Servie à côté de la page pour la vue OpenStreetMap (chargée à la
+    demande par Leaflet). Coordonnées arrondies : ~100 m suffisent
+    largement pour un surlignage de commune.
+    """
+
+    def round_geometry(geometry: dict) -> dict:
+        def round_ring(ring):
+            return [[round(lon, decimals), round(lat, decimals)] for lon, lat in ring]
+
+        if geometry["type"] == "Polygon":
+            coordinates = [round_ring(r) for r in geometry["coordinates"]]
+        else:
+            coordinates = [
+                [round_ring(r) for r in polygon] for polygon in geometry["coordinates"]
+            ]
+        return {"type": geometry["type"], "coordinates": coordinates}
+
+    features = [
+        {
+            "type": "Feature",
+            "properties": {"name": name},
+            "geometry": round_geometry(feature["geometry"]),
+        }
+        for name, feature in match_features(commune_names).items()
+    ]
+    return {"type": "FeatureCollection", "features": features}
+
+
 def build_paths(commune_names: list[str]) -> dict[str, str]:
     """Chemin SVG de chaque commune du registre, projeté dans le viewBox.
 
     Projection équirectangulaire (x corrigé par cos(latitude moyenne)),
-    suffisante à l'échelle d'un pays. Lève ValueError si une commune du
-    registre n'a pas de contour.
+    suffisante à l'échelle d'un pays.
     """
-    features = load_features()
-    by_norm = {_norm(f["properties"]["shapeName"]): f for f in features}
-
-    matched: dict[str, dict] = {}
-    for name in commune_names:
-        key = _norm(ALIASES.get(name, name))
-        feature = by_norm.get(key)
-        if feature is None:
-            raise ValueError(f"commune sans contour geoBoundaries : {name!r}")
-        matched[name] = feature
+    matched = match_features(commune_names)
 
     lons, lats = [], []
     for feature in matched.values():

@@ -20,13 +20,28 @@ from importlib import resources
 from pathlib import Path
 
 from annuaire_benin.atlas.aggregate import aggregate
-from annuaire_benin.atlas.geo import build_paths
+from annuaire_benin.atlas.geo import bounds_of, build_paths, export_geojson, match_features
 
 
 def build(connection: sqlite3.Connection, out_path: Path) -> dict:
-    """Construit la page et retourne les agrégats (pour le bilan)."""
+    """Construit la page et ses données annexes ; retourne les agrégats.
+
+    Écrit deux fichiers : ``index.html`` (autonome au chargement) et
+    ``communes.geojson`` (contours pour la vue OpenStreetMap, chargé à
+    la demande, même origine).
+    """
     data = aggregate(connection)
-    data["paths"] = build_paths(list(data["communes"]))
+    names = list(data["communes"])
+    data["paths"] = build_paths(names)
+    for name, feature in match_features(names).items():
+        min_lat, min_lon, max_lat, max_lon = bounds_of(feature)
+        data["communes"][name]["bounds"] = [
+            [round(min_lat, 3), round(min_lon, 3)],
+            [round(max_lat, 3), round(max_lon, 3)],
+        ]
+        data["communes"][name]["center"] = [
+            round((min_lat + max_lat) / 2, 3), round((min_lon + max_lon) / 2, 3),
+        ]
 
     template = (
         resources.files("annuaire_benin.atlas")
@@ -39,6 +54,10 @@ def build(connection: sqlite3.Connection, out_path: Path) -> dict:
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(page, encoding="utf-8")
+    geojson_path = out_path.parent / "communes.geojson"
+    geojson_path.write_text(
+        json.dumps(export_geojson(names), separators=(",", ":")), encoding="utf-8"
+    )
     return data
 
 
