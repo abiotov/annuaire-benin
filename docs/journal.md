@@ -1,5 +1,17 @@
 # Journal du projet
 
+## 2026-07-17 (suite) : atlas v3, la carte OpenStreetMap devient l'expérience principale
+
+Retours d'Etienne sur la v2 : la météo ne sert à rien, pas d'emojis, et OpenStreetMap ne doit pas être caché derrière un bouton.
+
+- La choroplèthe est désormais dessinée par Leaflet directement sur le fond OpenStreetMap : pan/zoom libre jusqu'à la rue, vol animé vers la commune cliquée, contour surligné, tuiles inversées en thème sombre. L'ancienne carte SVG maison et sa projection sont retirées (code mort supprimé de geo.py).
+- Météo Open-Meteo retirée : jolie mais sans valeur informative (décision documentée dans le README).
+- Tous les emojis remplacés par des icônes SVG inline (sprite de symboles, trait 2 px).
+- Légende interactive : survoler une classe isole ses communes sur la carte.
+- Robustesse constatée en vérification visuelle et corrigée : l'échec de chargement de la couche de contours n'empêche plus le panneau et le tableau de fonctionner.
+- Limite posée explicitement : pas de points par entreprise, le registre n'a pas de coordonnées GPS et pointer des entreprises individuelles publierait des données personnelles ; l'atlas montre des densités par commune.
+- Captures de vérification sur serveur HTTP local : vue nationale sombre (tuiles inversées) et lien profond #c=COTONOU zoomé au niveau des rues. 67 tests verts.
+
 ## 2026-07-17 (suite) : atlas v2, expérience enrichie
 
 - UX : recherche de commune avec autocomplétion, liens partageables (état commune/secteur/vue dans l'URL), bascule de thème (auto/clair/sombre), tableau triable par colonne, bouton « commune au hasard », badge de classement, compteurs et barres animés, tout respectant `prefers-reduced-motion`.

@@ -10,7 +10,6 @@ from annuaire_benin.atlas.geo import (
     ALIASES,
     _norm,
     bounds_of,
-    build_paths,
     export_geojson,
     load_features,
     match_features,
@@ -58,15 +57,9 @@ def test_geojson_has_all_77_communes_and_aliases_resolve():
         assert _norm(target) in names
 
 
-def test_build_paths_projects_into_viewbox():
-    paths = build_paths(["COTONOU", "SEME-PODJI", "N'DALI"])
-    assert set(paths) == {"COTONOU", "SEME-PODJI", "N'DALI"}
-    assert all(d.startswith("M") and d.endswith("Z") for d in paths.values())
-
-
-def test_build_paths_fails_loudly_on_unknown_commune():
+def test_match_features_fails_loudly_on_unknown_commune():
     with pytest.raises(ValueError, match="sans contour"):
-        build_paths(["COMMUNE INCONNUE"])
+        match_features(["COMMUNE INCONNUE"])
 
 
 def test_bounds_and_geojson_export():
@@ -87,12 +80,14 @@ def test_build_writes_page_and_geojson(connection, tmp_path):
     assert "__PAYLOAD__" not in page and "__GENERATED__" not in page
     assert "Atlas économique du Bénin" in page
     assert "COTONOU" in page and "SEME-PODJI" in page
-    assert '"bounds"' in page and '"center"' in page
-    # Contours pour la vue OSM écrits à côté de la page.
+    assert '"bounds"' in page and '"country_bounds"' in page
+    # Couche de contours écrite à côté de la page pour Leaflet.
     assert (tmp_path / "atlas" / "communes.geojson").exists()
     # Aucune ressource chargée depuis un domaine tiers dans le HTML :
-    # Leaflet est vendorisé, seuls les tuiles OSM et Open-Meteo sont
-    # appelés à la demande par le JS (documenté).
+    # Leaflet est vendorisé ; seules les tuiles OSM sont demandées à
+    # l'exécution par le JS (documenté, avec attribution).
     assert 'src="http' not in page
     assert 'rel="stylesheet" href="http' not in page
     assert 'vendor/leaflet/leaflet.js' in page
+    # Plus d'emoji dans l'interface : icônes SVG.
+    assert "<symbol id=" in page

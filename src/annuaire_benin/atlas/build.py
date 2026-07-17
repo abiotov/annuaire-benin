@@ -20,28 +20,31 @@ from importlib import resources
 from pathlib import Path
 
 from annuaire_benin.atlas.aggregate import aggregate
-from annuaire_benin.atlas.geo import bounds_of, build_paths, export_geojson, match_features
+from annuaire_benin.atlas.geo import bounds_of, export_geojson, match_features
 
 
 def build(connection: sqlite3.Connection, out_path: Path) -> dict:
     """Construit la page et ses données annexes ; retourne les agrégats.
 
-    Écrit deux fichiers : ``index.html`` (autonome au chargement) et
-    ``communes.geojson`` (contours pour la vue OpenStreetMap, chargé à
-    la demande, même origine).
+    Écrit deux fichiers : ``index.html`` et ``communes.geojson`` (la
+    couche de contours que Leaflet dessine par-dessus le fond
+    OpenStreetMap, servie depuis la même origine).
     """
     data = aggregate(connection)
     names = list(data["communes"])
-    data["paths"] = build_paths(names)
+    country = [[90.0, 180.0], [-90.0, -180.0]]
     for name, feature in match_features(names).items():
         min_lat, min_lon, max_lat, max_lon = bounds_of(feature)
         data["communes"][name]["bounds"] = [
             [round(min_lat, 3), round(min_lon, 3)],
             [round(max_lat, 3), round(max_lon, 3)],
         ]
-        data["communes"][name]["center"] = [
-            round((min_lat + max_lat) / 2, 3), round((min_lon + max_lon) / 2, 3),
-        ]
+        country[0] = [min(country[0][0], min_lat), min(country[0][1], min_lon)]
+        country[1] = [max(country[1][0], max_lat), max(country[1][1], max_lon)]
+    data["country_bounds"] = [
+        [round(country[0][0], 3), round(country[0][1], 3)],
+        [round(country[1][0], 3), round(country[1][1], 3)],
+    ]
 
     template = (
         resources.files("annuaire_benin.atlas")

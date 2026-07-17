@@ -1,7 +1,7 @@
-"""Contours des communes et projection vers des chemins SVG.
+"""Contours des communes pour l'atlas.
 
-Source des contours : geoBoundaries (gbOpen BEN ADM2, domaine public,
-version simplifiée), fichier embarqué dans le paquet. Les 7 écarts
+Source : geoBoundaries (gbOpen BEN ADM2, domaine public, version
+simplifiée), fichier embarqué dans le paquet. Les 7 écarts
 d'orthographe entre le registre et geoBoundaries sont résolus par une
 table d'alias explicite ; toute commune non appariée fait échouer la
 construction plutôt que de disparaître de la carte.
@@ -10,7 +10,6 @@ construction plutôt que de disparaître de la carte.
 from __future__ import annotations
 
 import json
-import math
 import unicodedata
 from importlib import resources
 
@@ -24,10 +23,6 @@ ALIASES = {
     "OUASSA-PEHUNCO": "Pehunco",
     "TOUKOUNTOUNA": "Toucountouna",
 }
-
-VIEWBOX_WIDTH = 520
-VIEWBOX_HEIGHT = 760
-_MARGIN = 8
 
 
 def _norm(name: str) -> str:
@@ -79,9 +74,9 @@ def bounds_of(feature: dict) -> tuple[float, float, float, float]:
 def export_geojson(commune_names: list[str], decimals: int = 3) -> dict:
     """FeatureCollection des contours, nommés comme le registre.
 
-    Servie à côté de la page pour la vue OpenStreetMap (chargée à la
-    demande par Leaflet). Coordonnées arrondies : ~100 m suffisent
-    largement pour un surlignage de commune.
+    Servie à côté de la page : c'est la couche de données que Leaflet
+    dessine par-dessus le fond OpenStreetMap. Coordonnées arrondies :
+    ~100 m suffisent largement pour des contours de communes.
     """
 
     def round_geometry(geometry: dict) -> dict:
@@ -105,41 +100,3 @@ def export_geojson(commune_names: list[str], decimals: int = 3) -> dict:
         for name, feature in match_features(commune_names).items()
     ]
     return {"type": "FeatureCollection", "features": features}
-
-
-def build_paths(commune_names: list[str]) -> dict[str, str]:
-    """Chemin SVG de chaque commune du registre, projeté dans le viewBox.
-
-    Projection équirectangulaire (x corrigé par cos(latitude moyenne)),
-    suffisante à l'échelle d'un pays.
-    """
-    matched = match_features(commune_names)
-
-    lons, lats = [], []
-    for feature in matched.values():
-        for ring in _rings(feature["geometry"]):
-            for lon, lat in ring:
-                lons.append(lon)
-                lats.append(lat)
-    cos_lat = math.cos(math.radians((min(lats) + max(lats)) / 2))
-    span_x = (max(lons) - min(lons)) * cos_lat
-    span_y = max(lats) - min(lats)
-    scale = min((VIEWBOX_WIDTH - 2 * _MARGIN) / span_x,
-                (VIEWBOX_HEIGHT - 2 * _MARGIN) / span_y)
-    min_lon, max_lat = min(lons), max(lats)
-
-    def project(lon: float, lat: float) -> tuple[float, float]:
-        x = _MARGIN + (lon - min_lon) * cos_lat * scale
-        y = _MARGIN + (max_lat - lat) * scale
-        return round(x, 1), round(y, 1)
-
-    paths = {}
-    for name, feature in matched.items():
-        parts = []
-        for ring in _rings(feature["geometry"]):
-            points = [project(lon, lat) for lon, lat in ring]
-            data = f"M{points[0][0]} {points[0][1]}"
-            data += "".join(f"L{x} {y}" for x, y in points[1:])
-            parts.append(data + "Z")
-        paths[name] = "".join(parts)
-    return paths

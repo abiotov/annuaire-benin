@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Atlas économique du Bénin</title>
-<meta name="description" content="235 000 entreprises béninoises nettoyées, dédupliquées et classées : carte interactive par commune et par secteur.">
+<meta name="description" content="235 000 entreprises béninoises nettoyées, dédupliquées et classées : carte interactive par commune et par secteur sur fond OpenStreetMap.">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <style>
   :root {
     color-scheme: light;
@@ -42,7 +43,9 @@
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
     line-height: 1.45;
   }
-  .wrap { max-width: 1100px; margin: 0 auto; padding: 26px 20px 44px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 26px 20px 44px; }
+  .ic { width: 1em; height: 1em; vertical-align: -0.12em; fill: none;
+        stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
   /* ---- En-tête ---- */
   .topbar { display: flex; align-items: flex-start; gap: 16px; }
@@ -58,70 +61,74 @@
   }
 
   /* ---- Tuiles ---- */
-  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 22px 0 18px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 12px; margin: 22px 0 18px; }
   .tile {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow);
-    transition: transform 150ms ease;
+    transition: transform 150ms ease; display: flex; gap: 12px; align-items: center;
   }
   .tile:hover { transform: translateY(-2px); }
-  .tile .ico { font-size: 1.1rem; }
-  .tile .v { font-size: 1.65rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .tile .l { color: var(--muted); font-size: 0.8rem; }
+  .tile .ic { width: 22px; height: 22px; color: var(--accent); flex: none; }
+  .tile .v { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .tile .l { color: var(--muted); font-size: 0.78rem; }
 
   /* ---- Contrôles ---- */
   .controls {
     display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
-    position: sticky; top: 0; z-index: 5; padding: 10px 0; background: var(--page);
+    position: sticky; top: 0; z-index: 1001; padding: 10px 0; background: var(--page);
   }
+  .searchwrap { position: relative; }
+  .searchwrap .ic { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
   .controls input, .controls select, .controls button {
     background: var(--surface); color: var(--ink);
     border: 1px solid var(--baseline); border-radius: 10px;
     padding: 9px 12px; font: inherit; font-size: 0.9rem;
   }
-  .controls button { cursor: pointer; }
-  .controls button:hover, #themeBtn:hover { border-color: var(--accent); color: var(--accent); }
-  #communeSearch { min-width: 245px; }
+  #communeSearch { min-width: 250px; padding-left: 34px; }
   #sectorSel { max-width: 330px; }
+  .controls button { cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+  .controls button:hover, #themeBtn:hover { border-color: var(--accent); color: var(--accent); }
 
   /* ---- Disposition ---- */
   .layout { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 18px; }
-  @media (max-width: 840px) { .layout { grid-template-columns: 1fr; } }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
   .card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 16px; padding: 18px; box-shadow: var(--shadow);
   }
-
-  /* ---- Carte ---- */
-  #map { width: 100%; height: auto; display: block; }
-  #map path {
-    stroke: var(--page); stroke-width: 1; cursor: pointer;
-    transition: fill 350ms ease, filter 90ms linear;
-  }
-  #map path:hover { filter: brightness(1.14); }
-  #map path.selected { stroke: var(--ink); stroke-width: 2; }
-  #map path:focus-visible { outline: none; stroke: var(--accent); stroke-width: 2.4; }
-  @media (prefers-reduced-motion: no-preference) {
-    #map.reveal path { animation: pop 500ms ease backwards; }
-    @keyframes pop { from { opacity: 0; } to { opacity: 1; } }
-  }
-  .maphead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 0 0 8px; }
+  .maphead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 0 0 10px; }
   .maphead .t { font-weight: 650; }
-  .maphead .m { color: var(--muted); font-size: 0.78rem; }
-  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 12px; align-items: center; }
-  .legend .item { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--ink-2); }
+  .maphead .m { color: var(--muted); font-size: 0.78rem; text-align: right; }
+
+  /* ---- Carte Leaflet ---- */
+  #map { height: 600px; border-radius: 10px; background: var(--surface-2); }
+  @media (max-width: 860px) { #map { height: 440px; } }
+  .leaflet-container { font: inherit; }
+  :root[data-theme="dark"] .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.9) saturate(0.7); }
+  :root[data-theme="dark"] .leaflet-control-zoom a,
+  :root[data-theme="dark"] .leaflet-control-attribution { background: var(--surface); color: var(--ink-2); }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.9) saturate(0.7); }
+    :root:where(:not([data-theme="light"])) .leaflet-control-zoom a,
+    :root:where(:not([data-theme="light"])) .leaflet-control-attribution { background: var(--surface); color: var(--ink-2); }
+  }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 12px; align-items: center; }
+  .legend .item { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--ink-2);
+                  padding: 2px 6px; border-radius: 6px; cursor: default; }
+  .legend .item:hover { background: var(--accent-soft); }
   .legend .sw { width: 16px; height: 12px; border-radius: 3px; border: 1px solid var(--border); }
   .legend .t { font-variant-numeric: tabular-nums; }
+  .legend .hint { margin-left: auto; color: var(--muted); font-size: 0.72rem; }
 
   /* ---- Panneau ---- */
-  #panel h2 { margin: 0; font-size: 1.15rem; letter-spacing: -0.01em; }
+  #panel h2 { margin: 0; font-size: 1.15rem; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
+  #panel h2 .ic { color: var(--accent); }
   #panel .meta { color: var(--ink-2); font-size: 0.85rem; margin: 2px 0 6px; }
   #panel .badge {
     display: inline-block; background: var(--accent-soft); color: var(--accent);
     border-radius: 999px; padding: 2px 10px; font-size: 0.75rem; font-weight: 600;
-    margin: 4px 0 10px;
+    margin: 4px 0 12px;
   }
-  #weather { color: var(--ink-2); font-size: 0.83rem; margin: 0 0 12px; min-height: 1.2em; }
   .bar-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; margin-bottom: 9px; }
   .bar-row .name { font-size: 0.8rem; color: var(--ink-2); grid-column: 1 / 3; }
   .bar-row .name.hl { color: var(--accent); font-weight: 650; }
@@ -136,26 +143,14 @@
   .panel-actions button {
     background: var(--surface-2); color: var(--ink); border: 1px solid var(--border);
     border-radius: 10px; padding: 7px 11px; font: inherit; font-size: 0.83rem; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
   }
   .panel-actions button:hover { border-color: var(--accent); color: var(--accent); }
-
-  /* ---- Vue OSM ---- */
-  #osmCard { display: none; margin-top: 18px; }
-  #osmCard .maphead button { background: none; border: none; color: var(--accent); cursor: pointer; font: inherit; }
-  #osmMap { height: 440px; border-radius: 10px; }
-  :root[data-theme="dark"] .leaflet-layer,
-  :root[data-theme="dark"] .leaflet-control-zoom,
-  :root[data-theme="dark"] .leaflet-control-attribution { filter: invert(1) hue-rotate(180deg) brightness(0.92); }
-  @media (prefers-color-scheme: dark) {
-    :root:where(:not([data-theme="light"])) .leaflet-layer,
-    :root:where(:not([data-theme="light"])) .leaflet-control-zoom,
-    :root:where(:not([data-theme="light"])) .leaflet-control-attribution { filter: invert(1) hue-rotate(180deg) brightness(0.92); }
-  }
 
   /* ---- Tableau ---- */
   #tableView { display: none; }
   table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
-  thead th { position: sticky; top: 54px; background: var(--surface); }
+  thead th { position: sticky; top: 56px; background: var(--surface); }
   th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--grid); }
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   th { color: var(--muted); font-weight: 600; font-size: 0.78rem; cursor: pointer; user-select: none; }
@@ -163,10 +158,10 @@
   tbody tr:hover { background: var(--accent-soft); cursor: pointer; }
 
   #tooltip {
-    position: fixed; pointer-events: none; display: none; z-index: 10;
+    position: fixed; pointer-events: none; display: none; z-index: 2000;
     background: var(--surface); color: var(--ink);
     border: 1px solid var(--border); border-radius: 10px;
-    padding: 7px 11px; font-size: 0.82rem; max-width: 240px;
+    padding: 7px 11px; font-size: 0.82rem; max-width: 250px;
     box-shadow: var(--shadow);
   }
   #tooltip .n { font-variant-numeric: tabular-nums; }
@@ -181,44 +176,51 @@
 </style>
 </head>
 <body>
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-building" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="1"/><line x1="9" y1="21" x2="9" y2="17"/><line x1="15" y1="21" x2="15" y2="17"/><line x1="9" y1="7" x2="10.5" y2="7"/><line x1="13.5" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="10.5" y2="11"/><line x1="13.5" y1="11" x2="15" y2="11"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24"><polygon points="1 6 8 3 16 6 23 3 23 18 16 21 8 18 1 21 1 6"/><line x1="8" y1="3" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="21"/></symbol>
+  <symbol id="i-award" viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16" y2="16"/></symbol>
+  <symbol id="i-shuffle" viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
+  <symbol id="i-contrast" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></symbol>
+</svg>
+
 <div class="wrap">
   <div class="topbar">
     <div class="titles">
       <h1><svg class="flag" viewBox="0 0 15 10" aria-hidden="true"><rect width="15" height="5" y="0" fill="#fcd116"/><rect width="15" height="5" y="5" fill="#e8112d"/><rect width="6" height="10" fill="#008751"/></svg>Atlas économique du Bénin</h1>
       <p class="sub">Les entreprises de l'annuaire national, nettoyées, dédupliquées et classées par
-      secteur. Comptages agrégés uniquement, aucune donnée individuelle.</p>
+      secteur, sur fond OpenStreetMap. Comptages agrégés par commune, aucune donnée individuelle.</p>
     </div>
-    <button id="themeBtn" title="Basculer le thème">🌓 Auto</button>
+    <button id="themeBtn" title="Basculer le thème"><svg class="ic"><use href="#i-contrast"/></svg> <span>Auto</span></button>
   </div>
 
   <div class="tiles" id="tiles"></div>
 
   <div class="controls">
-    <input id="communeSearch" list="communesList" placeholder="🔎 Chercher une commune..." autocomplete="off">
+    <span class="searchwrap">
+      <svg class="ic"><use href="#i-search"/></svg>
+      <input id="communeSearch" list="communesList" placeholder="Chercher une commune..." autocomplete="off">
+    </span>
     <datalist id="communesList"></datalist>
     <select id="sectorSel" aria-label="Filtrer par secteur"><option value="">Tous les secteurs</option></select>
-    <button id="randomBtn" title="Découvrir une commune au hasard">🎲 Au hasard</button>
-    <button id="viewBtn" aria-pressed="false">📋 Vue tableau</button>
+    <button id="randomBtn" title="Découvrir une commune au hasard"><svg class="ic"><use href="#i-shuffle"/></svg> Au hasard</button>
+    <button id="viewBtn" aria-pressed="false"><svg class="ic"><use href="#i-list"/></svg> <span>Vue tableau</span></button>
   </div>
 
   <div id="mapView" class="layout">
     <figure class="card" style="margin:0">
       <div class="maphead">
         <span class="t" id="mapTitle">Toutes les entreprises</span>
-        <span class="m">survoler pour les chiffres, cliquer pour le détail</span>
+        <span class="m">survoler pour les chiffres, cliquer pour le détail, zoomer librement</span>
       </div>
-      <svg id="map" class="reveal" viewBox="0 0 520 760" role="group" aria-label="Carte des communes du Bénin"></svg>
+      <div id="map" role="application" aria-label="Carte des communes du Bénin sur fond OpenStreetMap"></div>
       <div class="legend" id="legend"></div>
     </figure>
     <aside class="card" id="panel"></aside>
-  </div>
-
-  <div id="osmCard" class="card">
-    <div class="maphead">
-      <span class="t" id="osmTitle">OpenStreetMap</span>
-      <button id="osmClose">✕ Fermer</button>
-    </div>
-    <div id="osmMap"></div>
   </div>
 
   <div id="tableView" class="card">
@@ -235,16 +237,16 @@
 
   <footer>
     Généré le __GENERATED__ ·
-    Données : annuaire des établissements et sociétés du Bénin (agrégats) ·
+    Données : annuaire des établissements et sociétés du Bénin (agrégats par commune) ·
     Contours : <a href="https://www.geoboundaries.org/">geoBoundaries</a> (domaine public) ·
     Fond de carte : © contributeurs <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> ·
-    Météo : <a href="https://open-meteo.com/">Open-Meteo</a> ·
     Code : <a href="https://github.com/abiotov/annuaire-benin">abiotov/annuaire-benin</a>
   </footer>
 </div>
 
 <div id="tooltip"></div>
 
+<script src="vendor/leaflet/leaflet.js"></script>
 <script>
 const P = __PAYLOAD__;
 const fmt = n => n.toLocaleString("fr-FR");
@@ -257,6 +259,8 @@ const isDark = () => {
   return forced ? forced === "dark" : darkQuery.matches;
 };
 const ramp = () => (isDark() ? RAMP_DARK : RAMP_LIGHT);
+const icon = name => `<svg class="ic" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+const FLAG = '<svg class="flag" viewBox="0 0 15 10" aria-hidden="true"><rect width="15" height="5" y="0" fill="#fcd116"/><rect width="15" height="5" y="5" fill="#e8112d"/><rect width="6" height="10" fill="#008751"/></svg>';
 
 const communes = Object.keys(P.communes);
 const ranks = {};
@@ -265,6 +269,7 @@ communes.slice().sort((a, b) => P.communes[b].total - P.communes[a].total)
 let currentSector = "";
 let selected = null;
 let sortState = { k: "v", dir: -1 };
+let lastBins = {};
 
 /* ---------- État dans l'URL (liens partageables) ---------- */
 function readHash() {
@@ -287,14 +292,14 @@ function writeHash() {
 const located = P.total_entities - P.unlocated;
 const topSector = Object.values(P.sectors)[0];
 const TILES = [
-  ["🏢", P.total_entities, "entreprises au total"],
-  ["📍", located, "localisées sur la carte"],
-  ["🗺️", communes.length, "communes couvertes"],
-  ["🥇", topSector.total, topSector.label.split(" (")[0] + " (1er secteur)"],
+  ["building", P.total_entities, "entreprises au total"],
+  ["pin", located, "localisées sur la carte"],
+  ["map", communes.length, "communes couvertes"],
+  ["award", topSector.total, topSector.label.split(" (")[0] + " (1er secteur)"],
 ];
-document.getElementById("tiles").innerHTML = TILES.map(([ico, v, l], i) =>
-  `<div class="tile"><span class="ico">${ico}</span>
-   <div class="v" id="tile${i}" data-target="${v}">0</div><div class="l">${l}</div></div>`).join("");
+document.getElementById("tiles").innerHTML = TILES.map(([ic, v, l], i) =>
+  `<div class="tile">${icon(ic)}<div>
+   <div class="v" data-target="${v}">0</div><div class="l">${l}</div></div></div>`).join("");
 function countUp(el) {
   const target = Number(el.dataset.target);
   if (reduceMotion) { el.textContent = fmt(target); return; }
@@ -336,37 +341,52 @@ document.getElementById("randomBtn").addEventListener("click", () => {
 
 /* ---------- Thème ---------- */
 const themeBtn = document.getElementById("themeBtn");
-const THEMES = [["auto", "🌓 Auto"], ["light", "☀️ Clair"], ["dark", "🌙 Sombre"]];
+const THEMES = [["auto", "Auto"], ["light", "Clair"], ["dark", "Sombre"]];
 let themeIdx = Math.max(0, THEMES.findIndex(([t]) => t === (localStorage.getItem("atlas-theme") || "auto")));
 function applyTheme() {
   const [mode, label] = THEMES[themeIdx];
   if (mode === "auto") document.documentElement.removeAttribute("data-theme");
   else document.documentElement.setAttribute("data-theme", mode);
-  themeBtn.textContent = label;
+  themeBtn.querySelector("span").textContent = label;
   localStorage.setItem("atlas-theme", mode);
   render();
 }
 themeBtn.addEventListener("click", () => { themeIdx = (themeIdx + 1) % THEMES.length; applyTheme(); });
 darkQuery.addEventListener("change", () => { if (THEMES[themeIdx][0] === "auto") render(); });
 
-/* ---------- Carte SVG ---------- */
-const svg = document.getElementById("map");
-const paths = {};
-communes.forEach((name, i) => {
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", P.paths[name]);
-  path.setAttribute("tabindex", "0");
-  path.setAttribute("role", "button");
-  if (!reduceMotion) path.style.animationDelay = (i * 9) + "ms";
-  path.addEventListener("mousemove", e => showTip(e, name));
-  path.addEventListener("mouseleave", hideTip);
-  path.addEventListener("click", () => selectCommune(name));
-  path.addEventListener("keydown", e => {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectCommune(name); }
+/* ---------- Carte : choroplèthe Leaflet sur fond OpenStreetMap ---------- */
+const map = L.map("map", { scrollWheelZoom: false, zoomSnap: 0.25 });
+map.fitBounds(P.country_bounds, { padding: [8, 8] });
+map.on("focus click", () => map.scrollWheelZoom.enable());
+map.on("blur", () => map.scrollWheelZoom.disable());
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 18,
+  attribution: '© contributeurs <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+}).addTo(map);
+L.control.scale({ imperial: false }).addTo(map);
+
+const layers = {};
+let geoLayer = null;
+fetch("communes.geojson")
+  .then(r => r.json())
+  .then(collection => {
+    geoLayer = L.geoJSON(collection, {
+      style: () => baseStyle(0),
+      onEachFeature: (feature, layer) => {
+        const name = feature.properties.name;
+        layers[name] = layer;
+        layer.on("mousemove", e => showTip(e.originalEvent, name));
+        layer.on("mouseover", () => { if (name !== selected) layer.setStyle({ weight: 2.6 }); layer.bringToFront(); });
+        layer.on("mouseout", () => { hideTip(); styleLayer(name); });
+        layer.on("click", () => selectCommune(name));
+      },
+    }).addTo(map);
+    render();
+  })
+  .catch(() => {
+    document.getElementById("legend").innerHTML =
+      '<span class="hint">couche de données indisponible (hors ligne ?), le panneau et le tableau restent utilisables</span>';
   });
-  svg.appendChild(path);
-  paths[name] = path;
-});
 
 const valueOf = name => {
   const c = P.communes[name];
@@ -381,26 +401,48 @@ function thresholds() {
     values[Math.min(values.length - 1, Math.floor(((i + 1) / bins) * values.length))]);
 }
 
-function render() {
+function baseStyle(fillColor) {
+  return {
+    color: isDark() ? "#0d0d0d" : "#fcfcfb",
+    weight: 1.2, fillOpacity: 0.72,
+    fillColor: fillColor || "transparent",
+  };
+}
+function styleLayer(name) {
+  const layer = layers[name];
+  if (!layer) return;
   const colors = ramp();
+  const v = valueOf(name);
+  const style = baseStyle(v === 0 ? "transparent" : colors[lastBins[name]]);
+  if (name === selected) {
+    style.color = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+    style.weight = 3;
+  }
+  layer.setStyle(style);
+  if (name === selected) layer.bringToFront();
+}
+
+function render() {
+  document.getElementById("mapTitle").textContent =
+    currentSector ? P.sectors[currentSector].label : "Toutes les entreprises";
+  renderPanel();
+  renderTable();
+  if (!geoLayer) return;  // couche indisponible : le reste vit quand même
   const cuts = thresholds();
   const binOf = v => {
     let bin = 0;
     while (bin < cuts.length && v >= cuts[bin]) bin += 1;
     return bin;
   };
+  lastBins = {};
   for (const name of communes) {
-    const v = valueOf(name);
-    paths[name].setAttribute("fill", v === 0 ? "var(--surface)" : colors[binOf(v)]);
-    paths[name].setAttribute("aria-label", `${name} : ${fmt(v)} entreprise${v > 1 ? "s" : ""}`);
+    lastBins[name] = binOf(valueOf(name));
+    styleLayer(name);
   }
-  document.getElementById("mapTitle").textContent =
-    currentSector ? P.sectors[currentSector].label : "Toutes les entreprises";
-  renderLegend(colors, cuts);
-  renderPanel();
-  renderTable();
+  renderLegend(ramp(), cuts);
 }
 
+/* Légende interactive : survoler une classe isole ses communes. */
 function renderLegend(colors, cuts) {
   const bounds = [1, ...cuts];
   const items = colors.map((color, i) => {
@@ -408,10 +450,22 @@ function renderLegend(colors, cuts) {
     const to = i < cuts.length ? cuts[i] - 1 : null;
     const label = to === null ? `≥ ${fmt(from)}`
       : (to <= from ? fmt(from) : `${fmt(from)} à ${fmt(to)}`);
-    return `<span class="item"><span class="sw" style="background:${color}"></span><span class="t">${label}</span></span>`;
+    return `<span class="item" data-bin="${i}"><span class="sw" style="background:${color}"></span><span class="t">${label}</span></span>`;
   });
-  document.getElementById("legend").innerHTML =
-    `<span class="item"><span class="sw" style="background:var(--surface)"></span><span class="t">0</span></span>` + items.join("");
+  const legend = document.getElementById("legend");
+  legend.innerHTML =
+    `<span class="item"><span class="sw" style="background:var(--surface)"></span><span class="t">0</span></span>`
+    + items.join("")
+    + `<span class="hint">survoler une classe pour l'isoler</span>`;
+  legend.querySelectorAll(".item[data-bin]").forEach(item => {
+    const bin = Number(item.dataset.bin);
+    item.addEventListener("mouseenter", () => {
+      for (const name of communes) {
+        if (lastBins[name] !== bin || valueOf(name) === 0) layers[name]?.setStyle({ fillOpacity: 0.08 });
+      }
+    });
+    item.addEventListener("mouseleave", () => { for (const name of communes) styleLayer(name); });
+  });
 }
 
 /* ---------- Panneau latéral ---------- */
@@ -435,21 +489,17 @@ function renderPanel() {
   const panel = document.getElementById("panel");
   if (selected) {
     const c = P.communes[selected];
-    panel.innerHTML = `<h2>📍 ${selected}</h2>
+    panel.innerHTML = `<h2>${icon("pin")} ${selected}</h2>
       <div class="meta">${fmt(c.total)} entreprises · 10 premiers secteurs</div>
       <span class="badge">${ranks[selected]}ᵉ commune sur ${communes.length}</span>
-      <p id="weather"></p>
       ${sectorBars(c.sectors)}
       <div class="panel-actions">
-        <button id="osmBtn">🗺️ Voir sur OpenStreetMap</button>
-        <button id="backBtn">← Vue nationale</button>
+        <button id="backBtn">${icon("back")} Vue nationale</button>
       </div>`;
     document.getElementById("backBtn").addEventListener("click", () => selectCommune(null));
-    document.getElementById("osmBtn").addEventListener("click", () => openOsm(selected));
-    loadWeather(selected);
   } else {
     const national = Object.fromEntries(Object.entries(P.sectors).map(([id, s]) => [id, s.total]));
-    panel.innerHTML = `<h2><svg class="flag" viewBox="0 0 15 10" aria-hidden="true"><rect width="15" height="5" y="0" fill="#fcd116"/><rect width="15" height="5" y="5" fill="#e8112d"/><rect width="6" height="10" fill="#008751"/></svg>Bénin entier</h2>
+    panel.innerHTML = `<h2>${FLAG}Bénin entier</h2>
       <div class="meta">${fmt(P.total_entities)} entreprises · 10 premiers secteurs ·
       cliquer une commune pour le détail</div>
       ${sectorBars(national)}`;
@@ -457,82 +507,24 @@ function renderPanel() {
   animateBars(panel);
 }
 
+function flyTo(bounds) {
+  if (reduceMotion) map.fitBounds(bounds, { padding: [30, 30] });
+  else map.flyToBounds(bounds, { padding: [30, 30], duration: 0.9 });
+}
+
 function selectCommune(name) {
-  if (selected) paths[selected].classList.remove("selected");
+  const previous = selected;
   selected = (name === selected) ? null : name;
-  if (selected) paths[selected].classList.add("selected");
+  if (previous) styleLayer(previous);
+  if (selected) {
+    styleLayer(selected);
+    flyTo(P.communes[selected].bounds);
+  } else {
+    flyTo(P.country_bounds);
+  }
   renderPanel();
   writeHash();
 }
-
-/* ---------- Météo (Open-Meteo, sans clé, dégradation silencieuse) ---------- */
-const WMO = [
-  [[0], "☀️ ciel dégagé"], [[1, 2], "🌤️ peu nuageux"], [[3], "☁️ couvert"],
-  [[45, 48], "🌫️ brouillard"], [[51, 53, 55, 56, 57], "🌦️ bruine"],
-  [[61, 63, 65, 66, 67], "🌧️ pluie"], [[80, 81, 82], "🌧️ averses"],
-  [[95, 96, 99], "⛈️ orage"],
-];
-async function loadWeather(name) {
-  const el = document.getElementById("weather");
-  if (!el) return;
-  try {
-    const key = "meteo:" + name;
-    const cached = JSON.parse(sessionStorage.getItem(key) || "null");
-    let current = cached && Date.now() - cached.t < 1800e3 ? cached.d : null;
-    if (!current) {
-      const [lat, lon] = P.communes[name].center;
-      const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m`);
-      current = (await response.json()).current;
-      sessionStorage.setItem(key, JSON.stringify({t: Date.now(), d: current}));
-    }
-    if (selected !== name || !document.getElementById("weather")) return;
-    const label = (WMO.find(([codes]) => codes.includes(current.weather_code)) || [null, "🌡️"])[1];
-    document.getElementById("weather").textContent =
-      `En ce moment : ${label}, ${Math.round(current.temperature_2m)} °C, vent ${Math.round(current.wind_speed_10m)} km/h (Open-Meteo)`;
-  } catch { /* hors ligne ou API muette : la ligne reste vide */ }
-}
-
-/* ---------- Vue OpenStreetMap (Leaflet vendorisé, chargé à la demande) ---------- */
-let leafletReady = null, osmMap = null, communesGeo = null, boundaryLayer = null;
-function loadLeaflet() {
-  leafletReady = leafletReady || new Promise((resolve, reject) => {
-    const css = document.createElement("link");
-    css.rel = "stylesheet"; css.href = "vendor/leaflet/leaflet.css";
-    document.head.appendChild(css);
-    const script = document.createElement("script");
-    script.src = "vendor/leaflet/leaflet.js";
-    script.onload = resolve; script.onerror = reject;
-    document.head.appendChild(script);
-  });
-  return leafletReady;
-}
-async function openOsm(name) {
-  const card = document.getElementById("osmCard");
-  document.getElementById("osmTitle").textContent = name + " sur OpenStreetMap";
-  card.style.display = "block";
-  try {
-    await loadLeaflet();
-    if (!osmMap) {
-      osmMap = L.map("osmMap", {scrollWheelZoom: false});
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 18,
-        attribution: '© contributeurs <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      }).addTo(osmMap);
-    }
-    if (!communesGeo) communesGeo = await (await fetch("communes.geojson")).json();
-    if (boundaryLayer) boundaryLayer.remove();
-    const feature = communesGeo.features.find(f => f.properties.name === name);
-    const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
-    boundaryLayer = L.geoJSON(feature, {style: {color: accent, weight: 3, fillOpacity: 0.08}}).addTo(osmMap);
-    osmMap.fitBounds(P.communes[name].bounds, {padding: [12, 12]});
-    card.scrollIntoView({behavior: reduceMotion ? "auto" : "smooth", block: "nearest"});
-  } catch {
-    document.getElementById("osmTitle").textContent = "Fond OpenStreetMap indisponible hors ligne";
-  }
-}
-document.getElementById("osmClose").addEventListener("click", () => {
-  document.getElementById("osmCard").style.display = "none";
-});
 
 /* ---------- Tableau triable ---------- */
 function tableRows() {
@@ -578,9 +570,10 @@ const viewBtn = document.getElementById("viewBtn");
 function setView(table) {
   document.getElementById("tableView").style.display = table ? "block" : "none";
   document.getElementById("mapView").style.display = table ? "none" : "grid";
-  if (table) document.getElementById("osmCard").style.display = "none";
-  viewBtn.textContent = table ? "🗺️ Vue carte" : "📋 Vue tableau";
+  viewBtn.querySelector("span").textContent = table ? "Vue carte" : "Vue tableau";
+  viewBtn.querySelector("use").setAttribute("href", table ? "#i-map" : "#i-list");
   viewBtn.setAttribute("aria-pressed", String(table));
+  if (!table) map.invalidateSize();
   writeHash();
 }
 function showMapView() { setView(false); }
@@ -607,9 +600,13 @@ function hideTip() { tooltip.style.display = "none"; }
 /* ---------- Démarrage ---------- */
 const startAsTable = readHash();
 sectorSel.value = currentSector;
-if (selected) paths[selected].classList.add("selected");
 applyTheme();
 if (startAsTable) setView(true);
+if (selected) {
+  const name = selected;
+  selected = null;
+  selectCommune(name);
+}
 </script>
 </body>
 </html>
