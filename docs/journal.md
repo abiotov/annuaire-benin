@@ -1,5 +1,19 @@
 # Journal du projet
 
+## 2026-07-17 (suite) : atlas v5, la revue senior appliquée en entier
+
+Suite de la revue complète de la page (« fais tout ») :
+
+- **Trois métriques** : Volume (quantiles), **Pour 1 000 habitants** (populations RGPH-4 2013 par commune, source INSAE, figées dans `atlas/population_2013.csv` avec 5 alias d'orthographe validés 77/77) et **Spécialisation** (location quotient : part locale du secteur / part nationale, échelle divergente bleu-gris-rouge à seuils fixes, l'invite guide vers le choix d'un secteur). La carte d'agriculture en spécialisation raconte enfin quelque chose : vallée du Niger et centre rural en rouge, villes en bleu.
+- **Panorama** : 25 mini-cartes canvas (une par secteur, projection normalisée calculée une fois), cliquables, réagissant à la métrique et au thème.
+- **Comparateur** : épingler une commune puis en choisir une autre, panneau côte à côte (totaux, densité, rang, 6 secteurs en barres doubles), état `cmp` dans l'URL.
+- **Panneau enrichi** : population, densité pour 1 000 habitants, top 5 des quartiers en agrégats (le champ quartier était inexploité).
+- **Partage** : favicon SVG (drapeau), balises Open Graph avec image `og.png` (1200×630 issue de la capture 3D).
+- **Robustesse et honnêteté** : état de chargement de la couche, encart « À propos des données et de la méthode » dans la page (source, méthode, métriques, limites dont la date d'export inconnue, accessibilité via la vue tableau, crédits), 4e tuile doublonnante remplacée par « 25 secteurs », communes à zéro en gris neutre au lieu de trous.
+- **Export CSV** des agrégats commune × secteur (avec population), côté client.
+- **Dette réglée** : tout le JS extrait de `template.html` vers `atlas.js` (copié par le build), et **smoke test Playwright** dans la CI (nouveau job e2e : page chargée, 77 communes dessinées, tableau, invite de spécialisation, absence de débordement horizontal en 390 px, ce que Edge headless ne sait pas tester avec sa largeur minimale d'environ 492 px).
+- Vérifications visuelles : spécialisation agriculture, panorama, panneau Cotonou (quartiers réels : Menontin, Zogbo, Vèdoko).
+
 ## 2026-07-17 (suite) : atlas v4, masque national et vue 3D
 
 - Retour d'Etienne : « la carte du Bénin a disparu » ; sur fond OSM, le pays se fondait dans ses voisins. Réponse : un masque « monde moins Bénin » (contour geoBoundaries ADM0, ajouté à `communes.geojson` sous le nom `__mask__`) estompe tout l'extérieur du pays ; la silhouette nationale ressort à nouveau tout en gardant le détail OSM à l'intérieur. Vérifié en production au passage : la page et ses fichiers se servaient correctement (200), le problème était bien la lisibilité.

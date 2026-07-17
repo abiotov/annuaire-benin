@@ -13,7 +13,10 @@ from __future__ import annotations
 import sqlite3
 from collections import Counter
 
+from annuaire_benin.atlas.population import load_population
 from annuaire_benin.classify.taxonomy import SECTORS
+
+TOP_QUARTIERS = 8
 
 
 def _main_communes(connection: sqlite3.Connection) -> dict[int, str]:
@@ -32,9 +35,26 @@ def _main_communes(connection: sqlite3.Connection) -> dict[int, str]:
     }
 
 
+def _top_quartiers(connection: sqlite3.Connection) -> dict[str, list]:
+    """Les quartiers comptant le plus d'entités, par commune (agrégats)."""
+    per_commune: dict[str, list] = {}
+    query = (
+        "SELECT commune, quartier, COUNT(DISTINCT entity_id) AS n FROM raw_contacts"
+        " WHERE commune IS NOT NULL AND quartier IS NOT NULL AND entity_id IS NOT NULL"
+        " GROUP BY commune, quartier ORDER BY commune, n DESC"
+    )
+    for commune, quartier, count in connection.execute(query):
+        bucket = per_commune.setdefault(commune, [])
+        if len(bucket) < TOP_QUARTIERS:
+            bucket.append([quartier, count])
+    return per_commune
+
+
 def aggregate(connection: sqlite3.Connection) -> dict:
     """Comptages agrégés : national, par secteur, par commune × secteur."""
     communes = _main_communes(connection)
+    population = load_population()
+    quartiers = _top_quartiers(connection)
 
     sector_totals: Counter = Counter()
     commune_data: dict[str, dict] = {}
@@ -62,7 +82,12 @@ def aggregate(connection: sqlite3.Connection) -> dict:
             for sector, count in sector_totals.most_common()
         },
         "communes": {
-            commune: {"total": entry["total"], "sectors": dict(entry["sectors"])}
+            commune: {
+                "total": entry["total"],
+                "sectors": dict(entry["sectors"]),
+                "pop": population.get(commune, 0),
+                "quartiers": quartiers.get(commune, []),
+            }
             for commune, entry in sorted(commune_data.items())
         },
     }

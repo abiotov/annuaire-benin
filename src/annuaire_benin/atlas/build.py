@@ -57,6 +57,12 @@ def build(connection: sqlite3.Connection, out_path: Path) -> dict:
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(page, encoding="utf-8")
+    script = (
+        resources.files("annuaire_benin.atlas")
+        .joinpath("atlas.js")
+        .read_text(encoding="utf-8")
+    )
+    (out_path.parent / "atlas.js").write_text(script, encoding="utf-8")
     collection = export_geojson(names)
     collection["features"].append(country_mask())
     geojson_path = out_path.parent / "communes.geojson"

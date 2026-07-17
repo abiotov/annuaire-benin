@@ -4,7 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Atlas économique du Bénin</title>
-<meta name="description" content="235 000 entreprises béninoises nettoyées, dédupliquées et classées : carte interactive par commune et par secteur sur fond OpenStreetMap.">
+<meta name="description" content="235 000 entreprises béninoises nettoyées, dédupliquées et classées : carte interactive par commune et par secteur, volume, densité par habitant et indice de spécialisation.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Atlas économique du Bénin">
+<meta property="og:description" content="235 000 entreprises sur carte interactive : volume, densité pour 1 000 habitants et spécialisation sectorielle des 77 communes, en 2D et 3D.">
+<meta property="og:url" content="https://abiotov.github.io/annuaire-benin/atlas/">
+<meta property="og:image" content="https://abiotov.github.io/annuaire-benin/atlas/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 15 10'%3E%3Crect width='15' height='5' y='0' fill='%23fcd116'/%3E%3Crect width='15' height='5' y='5' fill='%23e8112d'/%3E%3Crect width='6' height='10' fill='%23008751'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <style>
   :root {
@@ -14,6 +21,7 @@
     --grid: #e1e0d9; --baseline: #c3c2b7;
     --border: rgba(11,11,11,0.10);
     --accent: #2a78d6; --accent-soft: rgba(42,120,214,0.12);
+    --zero: #e6e5df;
     --shadow: 0 1px 3px rgba(11,11,11,0.06), 0 8px 24px rgba(11,11,11,0.05);
   }
   @media (prefers-color-scheme: dark) {
@@ -24,6 +32,7 @@
       --grid: #2c2c2a; --baseline: #383835;
       --border: rgba(255,255,255,0.10);
       --accent: #3987e5; --accent-soft: rgba(57,135,229,0.18);
+      --zero: #262624;
       --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.35);
     }
   }
@@ -34,6 +43,7 @@
     --grid: #2c2c2a; --baseline: #383835;
     --border: rgba(255,255,255,0.10);
     --accent: #3987e5; --accent-soft: rgba(57,135,229,0.18);
+    --zero: #262624;
     --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.35);
   }
   * { box-sizing: border-box; }
@@ -47,7 +57,6 @@
   .ic { width: 1em; height: 1em; vertical-align: -0.12em; fill: none;
         stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-  /* ---- En-tête ---- */
   .topbar { display: flex; align-items: flex-start; gap: 16px; }
   .topbar .titles { flex: 1; }
   h1 { margin: 0 0 4px; font-size: clamp(1.5rem, 4vw, 2.1rem); letter-spacing: -0.02em; }
@@ -60,7 +69,6 @@
     cursor: pointer; white-space: nowrap; box-shadow: var(--shadow);
   }
 
-  /* ---- Tuiles ---- */
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 12px; margin: 22px 0 18px; }
   .tile {
     background: var(--surface); border: 1px solid var(--border);
@@ -72,7 +80,6 @@
   .tile .v { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.15; }
   .tile .l { color: var(--muted); font-size: 0.78rem; }
 
-  /* ---- Contrôles ---- */
   .controls {
     display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
     position: sticky; top: 0; z-index: 1001; padding: 10px 0; background: var(--page);
@@ -85,15 +92,18 @@
     padding: 9px 12px; font: inherit; font-size: 0.9rem;
     max-width: 100%;
   }
-  #communeSearch { min-width: min(250px, 72vw); padding-left: 34px; }
-  #sectorSel { max-width: min(330px, 100%); }
+  #communeSearch { min-width: min(240px, 72vw); padding-left: 34px; }
+  #sectorSel { max-width: min(320px, 100%); }
   @media (max-width: 480px) {
     .searchwrap, #communeSearch, #sectorSel { width: 100%; }
   }
   .controls button { cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
   .controls button:hover, #themeBtn:hover { border-color: var(--accent); color: var(--accent); }
+  .seg { display: inline-flex; border: 1px solid var(--baseline); border-radius: 10px; overflow: hidden; }
+  .seg button { border: none; border-radius: 0; background: var(--surface); }
+  .seg button + button { border-left: 1px solid var(--baseline); }
+  .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
-  /* ---- Disposition ---- */
   .layout { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 18px; }
   @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
   .card {
@@ -104,26 +114,22 @@
   .maphead .t { font-weight: 650; }
   .maphead .m { color: var(--muted); font-size: 0.78rem; text-align: right; }
 
-  /* ---- Carte Leaflet ---- */
   #map, #map3d { height: 600px; border-radius: 10px; background: var(--surface-2); }
   #map3d { display: none; }
   @media (max-width: 860px) { #map, #map3d { height: 440px; } }
   #map3d canvas { border-radius: 10px; }
   .maplibregl-ctrl-attrib { font-size: 0.7rem; }
+  :root[data-theme="dark"] .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.9) saturate(0.7); }
+  :root[data-theme="dark"] .leaflet-control-zoom a,
+  :root[data-theme="dark"] .leaflet-control-attribution,
   :root[data-theme="dark"] .maplibregl-ctrl-group,
   :root[data-theme="dark"] .maplibregl-ctrl-attrib { background: var(--surface); color: var(--ink-2); }
   @media (prefers-color-scheme: dark) {
-    :root:where(:not([data-theme="light"])) .maplibregl-ctrl-group,
-    :root:where(:not([data-theme="light"])) .maplibregl-ctrl-attrib { background: var(--surface); color: var(--ink-2); }
-  }
-  .leaflet-container { font: inherit; }
-  :root[data-theme="dark"] .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.9) saturate(0.7); }
-  :root[data-theme="dark"] .leaflet-control-zoom a,
-  :root[data-theme="dark"] .leaflet-control-attribution { background: var(--surface); color: var(--ink-2); }
-  @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.9) saturate(0.7); }
     :root:where(:not([data-theme="light"])) .leaflet-control-zoom a,
-    :root:where(:not([data-theme="light"])) .leaflet-control-attribution { background: var(--surface); color: var(--ink-2); }
+    :root:where(:not([data-theme="light"])) .leaflet-control-attribution,
+    :root:where(:not([data-theme="light"])) .maplibregl-ctrl-group,
+    :root:where(:not([data-theme="light"])) .maplibregl-ctrl-attrib { background: var(--surface); color: var(--ink-2); }
   }
   .legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 12px; align-items: center; }
   .legend .item { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--ink-2);
@@ -133,15 +139,16 @@
   .legend .t { font-variant-numeric: tabular-nums; }
   .legend .hint { margin-left: auto; color: var(--muted); font-size: 0.72rem; }
 
-  /* ---- Panneau ---- */
   #panel h2 { margin: 0; font-size: 1.15rem; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
   #panel h2 .ic { color: var(--accent); }
   #panel .meta { color: var(--ink-2); font-size: 0.85rem; margin: 2px 0 6px; }
   #panel .badge {
     display: inline-block; background: var(--accent-soft); color: var(--accent);
     border-radius: 999px; padding: 2px 10px; font-size: 0.75rem; font-weight: 600;
-    margin: 4px 0 12px;
+    margin: 4px 6px 10px 0;
   }
+  #panel h3 { margin: 14px 0 6px; font-size: 0.8rem; color: var(--muted); font-weight: 600;
+              text-transform: uppercase; letter-spacing: 0.04em; }
   .bar-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; margin-bottom: 9px; }
   .bar-row .name { font-size: 0.8rem; color: var(--ink-2); grid-column: 1 / 3; }
   .bar-row .name.hl { color: var(--accent); font-weight: 650; }
@@ -151,7 +158,12 @@
     border-radius: 0 4px 4px 0; min-width: 2px; width: 0;
     transition: width 500ms cubic-bezier(.2,.7,.3,1);
   }
+  .bar-row .bar.b { background: var(--muted); }
   .bar-row .val { font-size: 0.8rem; font-variant-numeric: tabular-nums; align-self: center; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips .chip { background: var(--surface-2); border-radius: 999px; padding: 3px 10px;
+                 font-size: 0.75rem; color: var(--ink-2); }
+  .chips .chip b { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; }
   .panel-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .panel-actions button {
     background: var(--surface-2); color: var(--ink); border: 1px solid var(--border);
@@ -159,9 +171,11 @@
     display: inline-flex; align-items: center; gap: 6px;
   }
   .panel-actions button:hover { border-color: var(--accent); color: var(--accent); }
+  .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 0.83rem; }
+  .cmp .h { font-weight: 650; }
+  .cmp .n { font-variant-numeric: tabular-nums; }
 
-  /* ---- Tableau ---- */
-  #tableView { display: none; }
+  #tableView, #sectorsView { display: none; }
   table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
   thead th { position: sticky; top: 56px; background: var(--surface); }
   th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--grid); }
@@ -169,6 +183,19 @@
   th { color: var(--muted); font-weight: 600; font-size: 0.78rem; cursor: pointer; user-select: none; }
   th .arrow { font-size: 0.7rem; }
   tbody tr:hover { background: var(--accent-soft); cursor: pointer; }
+
+  .minis { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+  .mini { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px;
+          padding: 10px; cursor: pointer; text-align: center; transition: transform 120ms ease; }
+  .mini:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .mini canvas { width: 100%; height: auto; }
+  .mini .n { font-size: 0.78rem; color: var(--ink-2); margin-top: 4px; line-height: 1.25; }
+  .mini .c { font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  details.about { margin-top: 18px; }
+  details.about summary { cursor: pointer; font-weight: 650; }
+  details.about .cols { columns: 2 340px; gap: 28px; margin-top: 10px; }
+  details.about p { margin: 0 0 10px; font-size: 0.85rem; color: var(--ink-2); }
 
   #tooltip {
     position: fixed; pointer-events: none; display: none; z-index: 2000;
@@ -193,13 +220,17 @@
   <symbol id="i-building" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="1"/><line x1="9" y1="21" x2="9" y2="17"/><line x1="15" y1="21" x2="15" y2="17"/><line x1="9" y1="7" x2="10.5" y2="7"/><line x1="13.5" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="10.5" y2="11"/><line x1="13.5" y1="11" x2="15" y2="11"/></symbol>
   <symbol id="i-pin" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></symbol>
   <symbol id="i-map" viewBox="0 0 24 24"><polygon points="1 6 8 3 16 6 23 3 23 18 16 21 8 18 1 21 1 6"/><line x1="8" y1="3" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="21"/></symbol>
-  <symbol id="i-award" viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16" y2="16"/></symbol>
   <symbol id="i-shuffle" viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></symbol>
   <symbol id="i-list" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></symbol>
   <symbol id="i-contrast" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-back" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></symbol>
   <symbol id="i-cube" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+  <symbol id="i-columns" viewBox="0 0 24 24"><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7m0-18H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7m0-18v18"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
 </svg>
 
 <div class="wrap">
@@ -221,9 +252,16 @@
     </span>
     <datalist id="communesList"></datalist>
     <select id="sectorSel" aria-label="Filtrer par secteur"><option value="">Tous les secteurs</option></select>
+    <span class="seg" role="group" aria-label="Métrique affichée">
+      <button data-metric="vol" aria-pressed="true">Volume</button>
+      <button data-metric="hab" aria-pressed="false" title="Entreprises pour 1 000 habitants (RGPH-4 2013)">Pour 1 000 hab.</button>
+      <button data-metric="spec" aria-pressed="false" title="Indice de spécialisation : part locale du secteur rapportée à sa part nationale">Spécialisation</button>
+    </span>
     <button id="randomBtn" title="Découvrir une commune au hasard"><svg class="ic"><use href="#i-shuffle"/></svg> Au hasard</button>
-    <button id="btn3d" aria-pressed="false" title="Communes en relief : la hauteur suit le nombre d'entreprises"><svg class="ic"><use href="#i-cube"/></svg> <span>Vue 3D</span></button>
+    <button id="btn3d" aria-pressed="false" title="Communes en relief"><svg class="ic"><use href="#i-cube"/></svg> <span>Vue 3D</span></button>
     <button id="viewBtn" aria-pressed="false"><svg class="ic"><use href="#i-list"/></svg> <span>Vue tableau</span></button>
+    <button id="sectorsBtn" aria-pressed="false" title="25 mini-cartes, une par secteur"><svg class="ic"><use href="#i-grid"/></svg> <span>Panorama</span></button>
+    <button id="csvBtn" title="Télécharger les agrégats commune × secteur"><svg class="ic"><use href="#i-download"/></svg> CSV</button>
   </div>
 
   <div id="mapView" class="layout">
@@ -233,8 +271,8 @@
         <span class="m">survoler pour les chiffres, cliquer pour le détail, zoomer librement</span>
       </div>
       <div id="map" role="application" aria-label="Carte des communes du Bénin sur fond OpenStreetMap"></div>
-      <div id="map3d" role="application" aria-label="Carte 3D : communes en relief selon le nombre d'entreprises"></div>
-      <div class="legend" id="legend"></div>
+      <div id="map3d" role="application" aria-label="Carte 3D : communes en relief"></div>
+      <div class="legend" id="legend"><span class="hint">chargement de la couche cartographique...</span></div>
     </figure>
     <aside class="card" id="panel"></aside>
   </div>
@@ -243,7 +281,7 @@
     <table>
       <thead><tr>
         <th data-k="name">Commune <span class="arrow"></span></th>
-        <th class="num" data-k="v">Entreprises <span class="arrow"></span></th>
+        <th class="num" data-k="v"><span id="valHead">Entreprises</span> <span class="arrow"></span></th>
         <th data-k="topLabel">Secteur dominant <span class="arrow"></span></th>
         <th class="num" data-k="share">Part <span class="arrow"></span></th>
       </tr></thead>
@@ -251,9 +289,50 @@
     </table>
   </div>
 
+  <div id="sectorsView" class="card">
+    <div class="maphead">
+      <span class="t">Panorama des 25 secteurs</span>
+      <span class="m" id="minisHint">cliquer une carte pour explorer ce secteur</span>
+    </div>
+    <div class="minis" id="minis"></div>
+  </div>
+
+  <details class="about card" id="about">
+    <summary>À propos des données et de la méthode</summary>
+    <div class="cols">
+      <p><b>Source.</b> Annuaire national des établissements et sociétés du Bénin, environ
+      497 000 lignes brutes ramenées à 235 360 entreprises après déduplication. Le fichier
+      source contient des données personnelles : il n'est jamais publié, cette page ne
+      contient que des comptages agrégés par commune, quartier et secteur. La date d'export
+      de l'annuaire n'est pas documentée par la source, les chiffres sont donc à lire comme
+      un ordre de grandeur récent, pas comme une photographie datée.</p>
+      <p><b>Méthode.</b> Téléphones normalisés vers le plan 2024 (77,9 % convertis, 22,1 %
+      tronqués par l'export source et marqués), déduplication exacte puis rapprochement
+      flou calibré sur 420 paires annotées à la main (précision mesurée 82,5 %),
+      classification des 334 libellés d'activité du registre vers 25 secteurs (table
+      exhaustive relue). Détails, tests et code dans le
+      <a href="https://github.com/abiotov/annuaire-benin">dépôt GitHub</a>.</p>
+      <p><b>Métriques.</b> Volume : nombre d'entreprises. Pour 1 000 habitants : rapporté
+      aux populations communales du recensement RGPH-4 2013 (INSAE). Spécialisation :
+      part locale du secteur divisée par sa part nationale, 1× = conforme à la moyenne du
+      pays. Les classes de couleur du volume et de la densité sont des quantiles recalculés
+      à chaque vue : deux cartes ne se comparent pas entre elles, la spécialisation utilise
+      elle des seuils fixes.</p>
+      <p><b>Limites.</b> Le registre ne fournit aucune coordonnée GPS : la carte montre des
+      densités par commune, jamais des entreprises pointées une à une. 104 entreprises sans
+      commune sont comptées dans les totaux mais absentes de la carte.</p>
+      <p><b>Accessibilité.</b> La vue tableau offre l'intégralité des chiffres au clavier
+      et aux lecteurs d'écran ; les valeurs exactes y sont triables par colonne.</p>
+      <p><b>Crédits.</b> Contours : geoBoundaries (domaine public). Fond de carte :
+      © contributeurs OpenStreetMap. Bibliothèques : Leaflet et MapLibre GL, embarquées
+      dans le dépôt.</p>
+    </div>
+  </details>
+
   <footer>
     Généré le __GENERATED__ ·
     Données : annuaire des établissements et sociétés du Bénin (agrégats par commune) ·
+    Population : INSAE, RGPH-4 2013 ·
     Contours : <a href="https://www.geoboundaries.org/">geoBoundaries</a> (domaine public) ·
     Fond de carte : © contributeurs <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> ·
     Code : <a href="https://github.com/abiotov/annuaire-benin">abiotov/annuaire-benin</a>
@@ -263,484 +342,7 @@
 <div id="tooltip"></div>
 
 <script src="vendor/leaflet/leaflet.js"></script>
-<script>
-const P = __PAYLOAD__;
-const fmt = n => n.toLocaleString("fr-FR");
-const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const RAMP_LIGHT = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"];
-const RAMP_DARK = ["#0d366b", "#184f95", "#256abf", "#3987e5", "#6da7ec", "#9ec5f4", "#cde2fb"];
-const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
-const isDark = () => {
-  const forced = document.documentElement.getAttribute("data-theme");
-  return forced ? forced === "dark" : darkQuery.matches;
-};
-const ramp = () => (isDark() ? RAMP_DARK : RAMP_LIGHT);
-const icon = name => `<svg class="ic" aria-hidden="true"><use href="#i-${name}"/></svg>`;
-const FLAG = '<svg class="flag" viewBox="0 0 15 10" aria-hidden="true"><rect width="15" height="5" y="0" fill="#fcd116"/><rect width="15" height="5" y="5" fill="#e8112d"/><rect width="6" height="10" fill="#008751"/></svg>';
-
-const communes = Object.keys(P.communes);
-const ranks = {};
-communes.slice().sort((a, b) => P.communes[b].total - P.communes[a].total)
-  .forEach((name, i) => { ranks[name] = i + 1; });
-let currentSector = "";
-let selected = null;
-let sortState = { k: "v", dir: -1 };
-let lastBins = {};
-
-/* ---------- État dans l'URL (liens partageables) ---------- */
-function readHash() {
-  const params = new URLSearchParams(location.hash.slice(1));
-  const c = params.get("c");
-  if (c && P.communes[c]) selected = c;
-  const s = params.get("s");
-  if (s && P.sectors[s]) currentSector = s;
-  return { wantsTable: params.get("v") === "table", wants3d: params.get("m") === "3d" };
-}
-function writeHash() {
-  const params = new URLSearchParams();
-  if (selected) params.set("c", selected);
-  if (currentSector) params.set("s", currentSector);
-  if (document.getElementById("tableView").style.display === "block") params.set("v", "table");
-  if (typeof mode3d !== "undefined" && mode3d) params.set("m", "3d");
-  history.replaceState(null, "", params.size ? "#" + params.toString() : location.pathname);
-}
-
-/* ---------- Tuiles avec compteurs animés ---------- */
-const located = P.total_entities - P.unlocated;
-const topSector = Object.values(P.sectors)[0];
-const TILES = [
-  ["building", P.total_entities, "entreprises au total"],
-  ["pin", located, "localisées sur la carte"],
-  ["map", communes.length, "communes couvertes"],
-  ["award", topSector.total, topSector.label.split(" (")[0] + " (1er secteur)"],
-];
-document.getElementById("tiles").innerHTML = TILES.map(([ic, v, l], i) =>
-  `<div class="tile">${icon(ic)}<div>
-   <div class="v" data-target="${v}">0</div><div class="l">${l}</div></div></div>`).join("");
-function countUp(el) {
-  const target = Number(el.dataset.target);
-  if (reduceMotion) { el.textContent = fmt(target); return; }
-  const t0 = performance.now(), dur = 900;
-  (function tick(t) {
-    const p = Math.min(1, (t - t0) / dur);
-    el.textContent = fmt(Math.round(target * (1 - Math.pow(1 - p, 3))));
-    if (p < 1) requestAnimationFrame(tick);
-  })(t0);
-}
-document.querySelectorAll(".tile .v").forEach(countUp);
-
-/* ---------- Contrôles ---------- */
-const sectorSel = document.getElementById("sectorSel");
-for (const [id, s] of Object.entries(P.sectors)) {
-  const opt = document.createElement("option");
-  opt.value = id;
-  opt.textContent = `${s.label} (${fmt(s.total)})`;
-  sectorSel.appendChild(opt);
-}
-sectorSel.addEventListener("change", () => { currentSector = sectorSel.value; render(); writeHash(); });
-
-const datalist = document.getElementById("communesList");
-communes.forEach(name => {
-  const opt = document.createElement("option");
-  opt.value = name;
-  datalist.appendChild(opt);
-});
-const searchBox = document.getElementById("communeSearch");
-searchBox.addEventListener("change", () => {
-  const name = searchBox.value.trim().toUpperCase();
-  if (P.communes[name]) { selectCommune(name); searchBox.value = ""; showMapView(); }
-});
-document.getElementById("randomBtn").addEventListener("click", () => {
-  const pool = communes.filter(n => n !== selected);
-  selectCommune(pool[Math.floor(Math.random() * pool.length)]);
-  showMapView();
-});
-
-/* ---------- Thème ---------- */
-const themeBtn = document.getElementById("themeBtn");
-const THEMES = [["auto", "Auto"], ["light", "Clair"], ["dark", "Sombre"]];
-let themeIdx = Math.max(0, THEMES.findIndex(([t]) => t === (localStorage.getItem("atlas-theme") || "auto")));
-function applyTheme() {
-  const [mode, label] = THEMES[themeIdx];
-  if (mode === "auto") document.documentElement.removeAttribute("data-theme");
-  else document.documentElement.setAttribute("data-theme", mode);
-  themeBtn.querySelector("span").textContent = label;
-  localStorage.setItem("atlas-theme", mode);
-  render();
-}
-themeBtn.addEventListener("click", () => { themeIdx = (themeIdx + 1) % THEMES.length; applyTheme(); });
-darkQuery.addEventListener("change", () => { if (THEMES[themeIdx][0] === "auto") render(); });
-
-/* ---------- Carte : choroplèthe Leaflet sur fond OpenStreetMap ---------- */
-const map = L.map("map", { scrollWheelZoom: false, zoomSnap: 0.25 });
-map.fitBounds(P.country_bounds, { padding: [8, 8] });
-map.on("focus click", () => map.scrollWheelZoom.enable());
-map.on("blur", () => map.scrollWheelZoom.disable());
-L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 18,
-  attribution: '© contributeurs <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-}).addTo(map);
-L.control.scale({ imperial: false }).addTo(map);
-
-const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-const layers = {};
-let geoLayer = null, geoData = null, maskLayer = null;
-
-/* Le masque estompe tout ce qui est hors du Bénin : le pays ressort,
-   l'intérieur garde le détail OpenStreetMap. */
-function maskStyle() {
-  return {
-    color: css("--baseline"), weight: 1, opacity: 0.6,
-    fillColor: css("--page"), fillOpacity: isDark() ? 0.72 : 0.62,
-    fillRule: "evenodd", interactive: false,
-  };
-}
-
-fetch("communes.geojson")
-  .then(r => r.json())
-  .then(collection => {
-    geoData = collection;
-    geoLayer = L.geoJSON(collection, {
-      style: feature => feature.properties.name === "__mask__" ? maskStyle() : baseStyle(0),
-      onEachFeature: (feature, layer) => {
-        const name = feature.properties.name;
-        if (name === "__mask__") { maskLayer = layer; return; }
-        layers[name] = layer;
-        layer.on("mousemove", e => showTip(e.originalEvent, name));
-        layer.on("mouseover", () => { if (name !== selected) layer.setStyle({ weight: 2.6 }); layer.bringToFront(); });
-        layer.on("mouseout", () => { hideTip(); styleLayer(name); });
-        layer.on("click", () => selectCommune(name));
-      },
-    }).addTo(map);
-    render();
-  })
-  .catch(() => {
-    document.getElementById("legend").innerHTML =
-      '<span class="hint">couche de données indisponible (hors ligne ?), le panneau et le tableau restent utilisables</span>';
-  });
-
-const valueOf = name => {
-  const c = P.communes[name];
-  return currentSector ? (c.sectors[currentSector] || 0) : c.total;
-};
-
-function thresholds() {
-  const values = communes.map(valueOf).filter(v => v > 0).sort((a, b) => a - b);
-  const bins = ramp().length;
-  if (!values.length) return [];
-  return Array.from({length: bins - 1}, (_, i) =>
-    values[Math.min(values.length - 1, Math.floor(((i + 1) / bins) * values.length))]);
-}
-
-function baseStyle(fillColor) {
-  return {
-    color: isDark() ? "#0d0d0d" : "#fcfcfb",
-    weight: 1.2, fillOpacity: 0.72,
-    fillColor: fillColor || "transparent",
-  };
-}
-function styleLayer(name) {
-  const layer = layers[name];
-  if (!layer) return;
-  const colors = ramp();
-  const v = valueOf(name);
-  const style = baseStyle(v === 0 ? "transparent" : colors[lastBins[name]]);
-  if (name === selected) {
-    style.color = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
-    style.weight = 3;
-  }
-  layer.setStyle(style);
-  if (name === selected) layer.bringToFront();
-}
-
-function render() {
-  document.getElementById("mapTitle").textContent =
-    currentSector ? P.sectors[currentSector].label : "Toutes les entreprises";
-  renderPanel();
-  renderTable();
-  if (!geoLayer) return;  // couche indisponible : le reste vit quand même
-  const cuts = thresholds();
-  const binOf = v => {
-    let bin = 0;
-    while (bin < cuts.length && v >= cuts[bin]) bin += 1;
-    return bin;
-  };
-  lastBins = {};
-  for (const name of communes) {
-    lastBins[name] = binOf(valueOf(name));
-    styleLayer(name);
-  }
-  if (maskLayer) maskLayer.setStyle(maskStyle());
-  renderLegend(ramp(), cuts);
-  if (mode3d) update3d();
-}
-
-/* Légende interactive : survoler une classe isole ses communes. */
-function renderLegend(colors, cuts) {
-  const bounds = [1, ...cuts];
-  const items = colors.map((color, i) => {
-    const from = bounds[i];
-    const to = i < cuts.length ? cuts[i] - 1 : null;
-    const label = to === null ? `≥ ${fmt(from)}`
-      : (to <= from ? fmt(from) : `${fmt(from)} à ${fmt(to)}`);
-    return `<span class="item" data-bin="${i}"><span class="sw" style="background:${color}"></span><span class="t">${label}</span></span>`;
-  });
-  const legend = document.getElementById("legend");
-  legend.innerHTML =
-    `<span class="item"><span class="sw" style="background:var(--surface)"></span><span class="t">0</span></span>`
-    + items.join("")
-    + `<span class="hint">survoler une classe pour l'isoler</span>`;
-  legend.querySelectorAll(".item[data-bin]").forEach(item => {
-    const bin = Number(item.dataset.bin);
-    item.addEventListener("mouseenter", () => {
-      for (const name of communes) {
-        if (lastBins[name] !== bin || valueOf(name) === 0) layers[name]?.setStyle({ fillOpacity: 0.08 });
-      }
-    });
-    item.addEventListener("mouseleave", () => { for (const name of communes) styleLayer(name); });
-  });
-}
-
-/* ---------- Panneau latéral ---------- */
-function sectorBars(sectorCounts) {
-  const top = Object.entries(sectorCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
-  const max = top.length ? top[0][1] : 1;
-  return top.map(([id, n]) => `
-    <div class="bar-row">
-      <span class="name${id === currentSector ? " hl" : ""}">${P.sectors[id].label}</span>
-      <span class="bar-track"><span class="bar" data-w="${Math.max(2, 100 * n / max)}"></span></span>
-      <span class="val">${fmt(n)}</span>
-    </div>`).join("");
-}
-function animateBars(panel) {
-  requestAnimationFrame(() => {
-    panel.querySelectorAll(".bar").forEach(bar => { bar.style.width = bar.dataset.w + "%"; });
-  });
-}
-
-function renderPanel() {
-  const panel = document.getElementById("panel");
-  if (selected) {
-    const c = P.communes[selected];
-    panel.innerHTML = `<h2>${icon("pin")} ${selected}</h2>
-      <div class="meta">${fmt(c.total)} entreprises · 10 premiers secteurs</div>
-      <span class="badge">${ranks[selected]}ᵉ commune sur ${communes.length}</span>
-      ${sectorBars(c.sectors)}
-      <div class="panel-actions">
-        <button id="backBtn">${icon("back")} Vue nationale</button>
-      </div>`;
-    document.getElementById("backBtn").addEventListener("click", () => selectCommune(null));
-  } else {
-    const national = Object.fromEntries(Object.entries(P.sectors).map(([id, s]) => [id, s.total]));
-    panel.innerHTML = `<h2>${FLAG}Bénin entier</h2>
-      <div class="meta">${fmt(P.total_entities)} entreprises · 10 premiers secteurs ·
-      cliquer une commune pour le détail</div>
-      ${sectorBars(national)}`;
-  }
-  animateBars(panel);
-}
-
-function flyTo(bounds) {
-  if (reduceMotion) map.fitBounds(bounds, { padding: [30, 30] });
-  else map.flyToBounds(bounds, { padding: [30, 30], duration: 0.9 });
-}
-
-function selectCommune(name) {
-  const previous = selected;
-  selected = (name === selected) ? null : name;
-  if (previous) styleLayer(previous);
-  const target = selected ? P.communes[selected].bounds : P.country_bounds;
-  if (selected) styleLayer(selected);
-  if (mode3d && ready3d) {
-    map3d.fitBounds([[target[0][1], target[0][0]], [target[1][1], target[1][0]]],
-      { padding: 60, pitch: map3d.getPitch(), bearing: map3d.getBearing(),
-        duration: reduceMotion ? 0 : 1200 });
-  } else {
-    flyTo(target);
-  }
-  renderPanel();
-  writeHash();
-}
-
-/* ---------- Vue 3D : communes extrudées (MapLibre GL vendorisé) ---------- */
-let mode3d = false, map3d = null, maplibreReady = null, ready3d = false;
-const btn3d = document.getElementById("btn3d");
-function loadMapLibre() {
-  maplibreReady = maplibreReady || new Promise((resolve, reject) => {
-    const link = document.createElement("link");
-    link.rel = "stylesheet"; link.href = "vendor/maplibre/maplibre-gl.css";
-    document.head.appendChild(link);
-    const script = document.createElement("script");
-    script.src = "vendor/maplibre/maplibre-gl.js";
-    script.onload = resolve; script.onerror = reject;
-    document.head.appendChild(script);
-  });
-  return maplibreReady;
-}
-/* Hauteur en racine carrée : Cotonou (49 378) resterait 500 fois plus
-   haute que la médiane sur une échelle linéaire, illisible. */
-function props3d() {
-  const colors = ramp();
-  return {
-    type: "FeatureCollection",
-    features: geoData.features.map(f => {
-      const name = f.properties.name;
-      if (name === "__mask__") return f;
-      const v = valueOf(name);
-      return { ...f, properties: {
-        name, v,
-        h: Math.sqrt(v) * 260,
-        color: v === 0 ? "rgba(0,0,0,0)" : colors[lastBins[name]],
-      } };
-    }),
-  };
-}
-async function toggle3d(on) {
-  mode3d = on;
-  btn3d.querySelector("span").textContent = on ? "Vue 2D" : "Vue 3D";
-  btn3d.setAttribute("aria-pressed", String(on));
-  document.getElementById("map").style.display = on ? "none" : "block";
-  document.getElementById("map3d").style.display = on ? "block" : "none";
-  writeHash();
-  if (!on) { map.invalidateSize(); return; }
-  showMapView();
-  try {
-    await loadMapLibre();
-    if (!map3d) init3d();
-    else { map3d.resize(); update3d(); }
-  } catch {
-    document.getElementById("legend").innerHTML =
-      '<span class="hint">vue 3D indisponible (hors ligne ?)</span>';
-  }
-}
-function init3d() {
-  map3d = new maplibregl.Map({
-    container: "map3d",
-    style: { version: 8, sources: {
-      osm: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-             tileSize: 256,
-             attribution: "© contributeurs <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>" },
-    }, layers: [{ id: "osm", type: "raster", source: "osm" }] },
-    center: [2.34, 9.3], zoom: 6.1, pitch: 55, bearing: -12,
-    attributionControl: { compact: true },
-  });
-  map3d.addControl(new maplibregl.NavigationControl({ visualizePitch: true }));
-  map3d.on("load", () => {
-    map3d.addSource("communes", { type: "geojson", data: props3d() });
-    map3d.addLayer({ id: "mask3d", type: "fill", source: "communes",
-      filter: ["==", ["get", "name"], "__mask__"],
-      paint: { "fill-color": css("--page"), "fill-opacity": 0.62 } });
-    map3d.addLayer({ id: "prismes", type: "fill-extrusion", source: "communes",
-      filter: ["!=", ["get", "name"], "__mask__"],
-      paint: {
-        "fill-extrusion-color": ["get", "color"],
-        "fill-extrusion-height": ["get", "h"],
-        "fill-extrusion-base": 0,
-        "fill-extrusion-opacity": 0.85,
-      } });
-    map3d.on("mousemove", "prismes", e => {
-      map3d.getCanvas().style.cursor = "pointer";
-      showTip(e.originalEvent, e.features[0].properties.name);
-    });
-    map3d.on("mouseleave", "prismes", () => { map3d.getCanvas().style.cursor = ""; hideTip(); });
-    map3d.on("click", "prismes", e => selectCommune(e.features[0].properties.name));
-    ready3d = true;
-    update3d();
-  });
-}
-function update3d() {
-  if (!ready3d || !geoData) return;
-  map3d.getSource("communes").setData(props3d());
-  map3d.setPaintProperty("mask3d", "fill-color", css("--page"));
-  map3d.setPaintProperty("osm", "raster-opacity", isDark() ? 0.35 : 1);
-}
-btn3d.addEventListener("click", () => toggle3d(!mode3d));
-
-/* ---------- Tableau triable ---------- */
-function tableRows() {
-  return communes.map(name => {
-    const c = P.communes[name];
-    const top = Object.entries(c.sectors).sort((a, b) => b[1] - a[1])[0];
-    return {
-      name, v: valueOf(name),
-      topLabel: P.sectors[top[0]].label,
-      share: c.total ? Math.round(100 * top[1] / c.total) : 0,
-    };
-  });
-}
-function renderTable() {
-  const rows = tableRows().sort((a, b) => {
-    const x = a[sortState.k], y = b[sortState.k];
-    return (typeof x === "string" ? x.localeCompare(y) : x - y) * sortState.dir;
-  });
-  document.getElementById("tableBody").innerHTML = rows.map(r =>
-    `<tr data-name="${r.name}"><td>${r.name}</td><td class="num">${fmt(r.v)}</td>
-     <td>${r.topLabel}</td><td class="num">${r.share} %</td></tr>`).join("");
-  document.querySelectorAll("thead th").forEach(th => {
-    th.querySelector(".arrow").textContent =
-      th.dataset.k === sortState.k ? (sortState.dir === -1 ? "▼" : "▲") : "";
-  });
-}
-document.querySelectorAll("thead th").forEach(th => {
-  th.addEventListener("click", () => {
-    sortState = {
-      k: th.dataset.k,
-      dir: sortState.k === th.dataset.k ? -sortState.dir : (th.dataset.k === "name" ? 1 : -1),
-    };
-    renderTable();
-  });
-});
-document.getElementById("tableBody").addEventListener("click", event => {
-  const row = event.target.closest("tr");
-  if (row) { selectCommune(row.dataset.name); showMapView(); }
-});
-
-/* ---------- Bascule carte / tableau ---------- */
-const viewBtn = document.getElementById("viewBtn");
-function setView(table) {
-  document.getElementById("tableView").style.display = table ? "block" : "none";
-  document.getElementById("mapView").style.display = table ? "none" : "grid";
-  viewBtn.querySelector("span").textContent = table ? "Vue carte" : "Vue tableau";
-  viewBtn.querySelector("use").setAttribute("href", table ? "#i-map" : "#i-list");
-  viewBtn.setAttribute("aria-pressed", String(table));
-  if (!table) {
-    if (mode3d && map3d) map3d.resize();
-    else map.invalidateSize();
-  }
-  writeHash();
-}
-function showMapView() { setView(false); }
-viewBtn.addEventListener("click", () =>
-  setView(document.getElementById("tableView").style.display !== "block"));
-
-/* ---------- Infobulle ---------- */
-const tooltip = document.getElementById("tooltip");
-function showTip(event, name) {
-  const c = P.communes[name];
-  const v = valueOf(name);
-  const detail = currentSector
-    ? `<span class="n">${fmt(v)}</span> · ${P.sectors[currentSector].label}<br><span class="hint">${fmt(c.total)} entreprises en tout</span>`
-    : `<span class="n">${fmt(v)}</span> entreprises · ${ranks[name]}ᵉ/${communes.length}`;
-  tooltip.innerHTML = `<strong>${name}</strong><br>${detail}<br><span class="hint">cliquer pour le détail</span>`;
-  tooltip.style.display = "block";
-  const x = Math.min(event.clientX + 14, window.innerWidth - tooltip.offsetWidth - 8);
-  const y = Math.min(event.clientY + 14, window.innerHeight - tooltip.offsetHeight - 8);
-  tooltip.style.left = x + "px";
-  tooltip.style.top = y + "px";
-}
-function hideTip() { tooltip.style.display = "none"; }
-
-/* ---------- Démarrage ---------- */
-const start = readHash();
-sectorSel.value = currentSector;
-applyTheme();
-if (start.wantsTable) setView(true);
-if (selected) {
-  const name = selected;
-  selected = null;
-  selectCommune(name);
-}
-if (start.wants3d) toggle3d(true);
-</script>
+<script>window.__ATLAS__ = __PAYLOAD__;</script>
+<script src="atlas.js"></script>
 </body>
 </html>

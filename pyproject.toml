@@ -19,12 +19,16 @@ dev = [
     "pytest>=8",
     "ruff>=0.5",
 ]
+e2e = [
+    "pytest>=8",
+    "playwright>=1.45",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-annuaire_benin = ["classify/*.csv", "atlas/*.geojson", "atlas/*.html"]
+annuaire_benin = ["classify/*.csv", "atlas/*.geojson", "atlas/*.html", "atlas/*.js", "atlas/*.csv"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
