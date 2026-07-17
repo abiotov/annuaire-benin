@@ -1,5 +1,14 @@
 # Journal du projet
 
+## 2026-07-17 (suite) : étape 4, l'atlas économique
+
+- `atlas/aggregate.py` : comptages commune × secteur, entité comptée dans sa commune majoritaire, 104 entités non localisées comptées à part. Agrégats seulement, rien d'individuel.
+- `atlas/geo.py` : contours des 77 communes (geoBoundaries gbOpen BEN ADM2, domaine public, 173 Ko simplifiés, embarqués dans le paquet), 7 écarts d'orthographe résolus par alias explicites (SEME-PODJI/Seme-Kpodji, COBLY/Kobli...), projection équirectangulaire vers des chemins SVG côté Python, échec bruyant si une commune n'a pas de contour.
+- `atlas/build.py` + `template.html` : page unique autonome (126 Ko, zéro requête externe), carte choroplèthe interactive, filtre par secteur, panneau de détail par commune, vue tableau, infobulles, thèmes clair et sombre (rampe séquentielle bleue inversée en sombre), navigation clavier sur la carte.
+- Rendu vérifié par captures headless (Edge) dans les deux thèmes avant publication.
+- Publication : GitHub Pages sert `docs/` ; l'atlas est en ligne sur https://abiotov.github.io/annuaire-benin/atlas/
+- 67 tests verts. Incident d'environnement noté : le PATH du shell s'est mis à pointer vers le venv d'un autre projet ; l'interpréteur global est désormais appelé explicitement.
+
 ## 2026-07-17 : étape 3, classification par secteur
 
 - Profilage du champ « activité » : vocabulaire fermé de 334 valeurs de registre (et non du texte libre). Conséquence assumée : ni LLM ni fine-tuning, une table de correspondance exhaustive suffit et elle est auditable.

@@ -24,7 +24,7 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-annuaire_benin = ["classify/*.csv"]
+annuaire_benin = ["classify/*.csv", "atlas/*.geojson", "atlas/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
