@@ -1,6 +1,10 @@
 # Données réelles : ne jamais commiter (contiennent des données personnelles).
 data/
 
+# Secrets : jamais commités.
+.env
+*.env
+
 # Python
 __pycache__/
 *.py[cod]

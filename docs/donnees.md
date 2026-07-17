@@ -98,6 +98,19 @@ La courbe par bande de score a dicté la coupure : 0 % de vraies paires sous 0,8
 
 Limites assumées : le rappel est mesuré parmi les paires candidates (une vraie paire jamais proposée par le blocking est invisible) ; le seuil a été calibré sur l'ensemble de l'échantillon, une validation sur un jeu frais est prévue avec l'arbitrage LLM.
 
+### Arbitrage LLM de la zone grise (étape 2c, 2026-07-17)
+
+Protocole : le juge (Gemini, API REST, lots de 25 paires, température 0) est d'abord évalué sur les 203 paires grises du jeu de vérité (11 « oui », 128 « non », 64 incertaines humaines) avant tout déploiement. Quatre configurations mesurées, précision et rappel du verdict « même entreprise » contre l'annotation humaine :
+
+| Configuration | Précision | Rappel |
+|---|---:|---:|
+| gemini-2.5-flash, contexte nom + commune | 60,0 % | 54,5 % |
+| gemini-2.5-flash, + quartiers et secteurs | 66,7 % | 54,5 % |
+| gemini-3-flash-preview, contexte enrichi | 44,0 % | **100 %** |
+| gemini-3-flash-preview + contre-examen adversarial | **71,4 %** | 45,5 % |
+
+**Décision : pas de fusion automatique depuis la zone grise.** Aucune configuration n'atteint un niveau de précision déployable, et surtout l'échantillon de 11 vraies paires est trop petit pour certifier un fusionneur (l'intervalle de confiance d'une précision mesurée sur 7 à 25 verdicts se compte en dizaines de points). Les verdicts servent de **pré-tri pour revue humaine** : les paires « même, confirmé au contre-examen » des 1 500 meilleures paires grises (score ≥ 0,72) sont persistées dans la table `arbitrations` et exportables pour validation manuelle. Incident d'API documenté : le « thinking » par défaut de gemini-2.5-flash consomme `maxOutputTokens` (381 jetons de réflexion pour une seule paire) et tronquait le JSON des lots ; désactivé pour cette tâche.
+
 ## Étape 3 : classification par secteur
 
 Découverte du profilage : le champ « activité » est un **vocabulaire fermé de 334 valeurs** de registre (les 10 plus fréquentes couvrent 58,6 % des entités, les 200 premières 99,1 %). La classification n'a donc pas besoin de modèle : c'est une table de correspondance exhaustive (`src/annuaire_benin/classify/mapping.csv`), construite par règles puis **relue valeur par valeur** (les pièges relevés à la relecture : « transformation » contient « formation », « business » contient « usine », « jeux vidéos » n'est pas de l'audiovisuel).

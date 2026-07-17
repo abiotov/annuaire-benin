@@ -1,5 +1,15 @@
 # Journal du projet
 
+## 2026-07-17 (suite) : étape 2c, l'arbitrage LLM mesuré puis refusé
+
+Etienne a fourni une clé Gemini (stockée dans `data/.env`, ignorée par git, `.gitignore` renforcé sur `*.env`).
+
+- `dedupe/arbitrate.py` : juge LLM par lots de 25 paires (API REST Gemini, urllib, température 0, retries et respect des quotas), contexte par paire (noms, communes, quartiers, secteurs, contacts partagés, similarité), verdicts persistés dans la table `arbitrations` par tranches de 100 (interruption sans perte, reprise exacte), modes `--gold` (évaluation contre le jeu de vérité), arbitrage borné (`--limit`, `--min-score`) et `--apply`.
+- Protocole gold-first : 4 configurations mesurées sur les 203 paires grises annotées avant tout déploiement (tableau dans docs/donnees.md). Meilleure précision : 71,4 % avec contre-examen adversarial, au prix du rappel (45,5 %) ; gemini-3-flash-preview seul trouve 100 % des vraies paires mais à 44 % de précision.
+- Incidents documentés : le thinking par défaut de gemini-2.5-flash tronquait le JSON des lots (ses jetons comptent dans maxOutputTokens) ; la persistance de fin de run aurait perdu un run interrompu par timeout, rendue incrémentale.
+- **Décision : pas de fusion automatique.** Précision insuffisante et échantillon de 11 positifs trop petit pour certifier. L'arbitrage devient un pré-tri : 1 500 meilleures paires grises jugées et persistées pour revue humaine. Renoncer sur mesure est un résultat d'ingénierie, pas un échec.
+- Run de pré-tri exécuté (3 passes reprenables de 500) : **63 « même » confirmées au contre-examen, 1 024 « différentes », 413 incertaines**. Le taux de « même » s'effondre avec le score (49 puis 6 puis 8 par tranche de 500), cohérent avec l'ordre de score. Export de revue : `data/revue_zone_grise.csv` (privé), colonne `validation_humaine` à remplir ; en tête de liste, des quasi-doublons évidents (« ADRI O ET FILS » / « ADRIENEETFILS »).
+
 ## 2026-07-17 (suite) : atlas v5, la revue senior appliquée en entier
 
 Suite de la revue complète de la page (« fais tout ») :
