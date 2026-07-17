@@ -83,9 +83,13 @@
     background: var(--surface); color: var(--ink);
     border: 1px solid var(--baseline); border-radius: 10px;
     padding: 9px 12px; font: inherit; font-size: 0.9rem;
+    max-width: 100%;
   }
-  #communeSearch { min-width: 250px; padding-left: 34px; }
-  #sectorSel { max-width: 330px; }
+  #communeSearch { min-width: min(250px, 72vw); padding-left: 34px; }
+  #sectorSel { max-width: min(330px, 100%); }
+  @media (max-width: 480px) {
+    .searchwrap, #communeSearch, #sectorSel { width: 100%; }
+  }
   .controls button { cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
   .controls button:hover, #themeBtn:hover { border-color: var(--accent); color: var(--accent); }
 
