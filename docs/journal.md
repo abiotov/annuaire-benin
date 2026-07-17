@@ -1,5 +1,12 @@
 # Journal du projet
 
+## 2026-07-17 (suite) : atlas v4, masque national et vue 3D
+
+- Retour d'Etienne : « la carte du Bénin a disparu » ; sur fond OSM, le pays se fondait dans ses voisins. Réponse : un masque « monde moins Bénin » (contour geoBoundaries ADM0, ajouté à `communes.geojson` sous le nom `__mask__`) estompe tout l'extérieur du pays ; la silhouette nationale ressort à nouveau tout en gardant le détail OSM à l'intérieur. Vérifié en production au passage : la page et ses fichiers se servaient correctement (200), le problème était bien la lisibilité.
+- Vue 3D à la demande : MapLibre GL 4.7 vendorisé (784 Ko, chargé au premier clic sur « Vue 3D »), chaque commune extrudée en prisme, hauteur = racine carrée du nombre d'entreprises (documenté : le linéaire serait illisible face à Cotonou), rotation et inclinaison libres, tuiles estompées en thème sombre, survol et clic synchronisés avec le panneau, état `m=3d` partageable dans l'URL.
+- Premier réglage de hauteur trop timide constaté sur capture (facteur 110 → 260) : Cotonou et Abomey-Calavi se dressent maintenant nettement sur la côte.
+- 67 tests verts, captures de vérification en 2D masquée et en 3D.
+
 ## 2026-07-17 (suite) : atlas v3, la carte OpenStreetMap devient l'expérience principale
 
 Retours d'Etienne sur la v2 : la météo ne sert à rien, pas d'emojis, et OpenStreetMap ne doit pas être caché derrière un bouton.

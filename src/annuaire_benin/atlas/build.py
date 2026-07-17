@@ -20,7 +20,7 @@ from importlib import resources
 from pathlib import Path
 
 from annuaire_benin.atlas.aggregate import aggregate
-from annuaire_benin.atlas.geo import bounds_of, export_geojson, match_features
+from annuaire_benin.atlas.geo import bounds_of, country_mask, export_geojson, match_features
 
 
 def build(connection: sqlite3.Connection, out_path: Path) -> dict:
@@ -57,9 +57,11 @@ def build(connection: sqlite3.Connection, out_path: Path) -> dict:
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(page, encoding="utf-8")
+    collection = export_geojson(names)
+    collection["features"].append(country_mask())
     geojson_path = out_path.parent / "communes.geojson"
     geojson_path.write_text(
-        json.dumps(export_geojson(names), separators=(",", ":")), encoding="utf-8"
+        json.dumps(collection, separators=(",", ":")), encoding="utf-8"
     )
     return data
 

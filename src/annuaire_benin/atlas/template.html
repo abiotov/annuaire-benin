@@ -101,8 +101,17 @@
   .maphead .m { color: var(--muted); font-size: 0.78rem; text-align: right; }
 
   /* ---- Carte Leaflet ---- */
-  #map { height: 600px; border-radius: 10px; background: var(--surface-2); }
-  @media (max-width: 860px) { #map { height: 440px; } }
+  #map, #map3d { height: 600px; border-radius: 10px; background: var(--surface-2); }
+  #map3d { display: none; }
+  @media (max-width: 860px) { #map, #map3d { height: 440px; } }
+  #map3d canvas { border-radius: 10px; }
+  .maplibregl-ctrl-attrib { font-size: 0.7rem; }
+  :root[data-theme="dark"] .maplibregl-ctrl-group,
+  :root[data-theme="dark"] .maplibregl-ctrl-attrib { background: var(--surface); color: var(--ink-2); }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .maplibregl-ctrl-group,
+    :root:where(:not([data-theme="light"])) .maplibregl-ctrl-attrib { background: var(--surface); color: var(--ink-2); }
+  }
   .leaflet-container { font: inherit; }
   :root[data-theme="dark"] .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.9) saturate(0.7); }
   :root[data-theme="dark"] .leaflet-control-zoom a,
@@ -186,6 +195,7 @@
   <symbol id="i-list" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
   <symbol id="i-contrast" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-back" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></symbol>
+  <symbol id="i-cube" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></symbol>
 </svg>
 
 <div class="wrap">
@@ -208,6 +218,7 @@
     <datalist id="communesList"></datalist>
     <select id="sectorSel" aria-label="Filtrer par secteur"><option value="">Tous les secteurs</option></select>
     <button id="randomBtn" title="Découvrir une commune au hasard"><svg class="ic"><use href="#i-shuffle"/></svg> Au hasard</button>
+    <button id="btn3d" aria-pressed="false" title="Communes en relief : la hauteur suit le nombre d'entreprises"><svg class="ic"><use href="#i-cube"/></svg> <span>Vue 3D</span></button>
     <button id="viewBtn" aria-pressed="false"><svg class="ic"><use href="#i-list"/></svg> <span>Vue tableau</span></button>
   </div>
 
@@ -218,6 +229,7 @@
         <span class="m">survoler pour les chiffres, cliquer pour le détail, zoomer librement</span>
       </div>
       <div id="map" role="application" aria-label="Carte des communes du Bénin sur fond OpenStreetMap"></div>
+      <div id="map3d" role="application" aria-label="Carte 3D : communes en relief selon le nombre d'entreprises"></div>
       <div class="legend" id="legend"></div>
     </figure>
     <aside class="card" id="panel"></aside>
@@ -278,13 +290,14 @@ function readHash() {
   if (c && P.communes[c]) selected = c;
   const s = params.get("s");
   if (s && P.sectors[s]) currentSector = s;
-  return params.get("v") === "table";
+  return { wantsTable: params.get("v") === "table", wants3d: params.get("m") === "3d" };
 }
 function writeHash() {
   const params = new URLSearchParams();
   if (selected) params.set("c", selected);
   if (currentSector) params.set("s", currentSector);
   if (document.getElementById("tableView").style.display === "block") params.set("v", "table");
+  if (typeof mode3d !== "undefined" && mode3d) params.set("m", "3d");
   history.replaceState(null, "", params.size ? "#" + params.toString() : location.pathname);
 }
 
@@ -365,15 +378,29 @@ L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 L.control.scale({ imperial: false }).addTo(map);
 
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const layers = {};
-let geoLayer = null;
+let geoLayer = null, geoData = null, maskLayer = null;
+
+/* Le masque estompe tout ce qui est hors du Bénin : le pays ressort,
+   l'intérieur garde le détail OpenStreetMap. */
+function maskStyle() {
+  return {
+    color: css("--baseline"), weight: 1, opacity: 0.6,
+    fillColor: css("--page"), fillOpacity: isDark() ? 0.72 : 0.62,
+    fillRule: "evenodd", interactive: false,
+  };
+}
+
 fetch("communes.geojson")
   .then(r => r.json())
   .then(collection => {
+    geoData = collection;
     geoLayer = L.geoJSON(collection, {
-      style: () => baseStyle(0),
+      style: feature => feature.properties.name === "__mask__" ? maskStyle() : baseStyle(0),
       onEachFeature: (feature, layer) => {
         const name = feature.properties.name;
+        if (name === "__mask__") { maskLayer = layer; return; }
         layers[name] = layer;
         layer.on("mousemove", e => showTip(e.originalEvent, name));
         layer.on("mouseover", () => { if (name !== selected) layer.setStyle({ weight: 2.6 }); layer.bringToFront(); });
@@ -439,7 +466,9 @@ function render() {
     lastBins[name] = binOf(valueOf(name));
     styleLayer(name);
   }
+  if (maskLayer) maskLayer.setStyle(maskStyle());
   renderLegend(ramp(), cuts);
+  if (mode3d) update3d();
 }
 
 /* Légende interactive : survoler une classe isole ses communes. */
@@ -516,15 +545,112 @@ function selectCommune(name) {
   const previous = selected;
   selected = (name === selected) ? null : name;
   if (previous) styleLayer(previous);
-  if (selected) {
-    styleLayer(selected);
-    flyTo(P.communes[selected].bounds);
+  const target = selected ? P.communes[selected].bounds : P.country_bounds;
+  if (selected) styleLayer(selected);
+  if (mode3d && ready3d) {
+    map3d.fitBounds([[target[0][1], target[0][0]], [target[1][1], target[1][0]]],
+      { padding: 60, pitch: map3d.getPitch(), bearing: map3d.getBearing(),
+        duration: reduceMotion ? 0 : 1200 });
   } else {
-    flyTo(P.country_bounds);
+    flyTo(target);
   }
   renderPanel();
   writeHash();
 }
+
+/* ---------- Vue 3D : communes extrudées (MapLibre GL vendorisé) ---------- */
+let mode3d = false, map3d = null, maplibreReady = null, ready3d = false;
+const btn3d = document.getElementById("btn3d");
+function loadMapLibre() {
+  maplibreReady = maplibreReady || new Promise((resolve, reject) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet"; link.href = "vendor/maplibre/maplibre-gl.css";
+    document.head.appendChild(link);
+    const script = document.createElement("script");
+    script.src = "vendor/maplibre/maplibre-gl.js";
+    script.onload = resolve; script.onerror = reject;
+    document.head.appendChild(script);
+  });
+  return maplibreReady;
+}
+/* Hauteur en racine carrée : Cotonou (49 378) resterait 500 fois plus
+   haute que la médiane sur une échelle linéaire, illisible. */
+function props3d() {
+  const colors = ramp();
+  return {
+    type: "FeatureCollection",
+    features: geoData.features.map(f => {
+      const name = f.properties.name;
+      if (name === "__mask__") return f;
+      const v = valueOf(name);
+      return { ...f, properties: {
+        name, v,
+        h: Math.sqrt(v) * 260,
+        color: v === 0 ? "rgba(0,0,0,0)" : colors[lastBins[name]],
+      } };
+    }),
+  };
+}
+async function toggle3d(on) {
+  mode3d = on;
+  btn3d.querySelector("span").textContent = on ? "Vue 2D" : "Vue 3D";
+  btn3d.setAttribute("aria-pressed", String(on));
+  document.getElementById("map").style.display = on ? "none" : "block";
+  document.getElementById("map3d").style.display = on ? "block" : "none";
+  writeHash();
+  if (!on) { map.invalidateSize(); return; }
+  showMapView();
+  try {
+    await loadMapLibre();
+    if (!map3d) init3d();
+    else { map3d.resize(); update3d(); }
+  } catch {
+    document.getElementById("legend").innerHTML =
+      '<span class="hint">vue 3D indisponible (hors ligne ?)</span>';
+  }
+}
+function init3d() {
+  map3d = new maplibregl.Map({
+    container: "map3d",
+    style: { version: 8, sources: {
+      osm: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+             tileSize: 256,
+             attribution: "© contributeurs <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>" },
+    }, layers: [{ id: "osm", type: "raster", source: "osm" }] },
+    center: [2.34, 9.3], zoom: 6.1, pitch: 55, bearing: -12,
+    attributionControl: { compact: true },
+  });
+  map3d.addControl(new maplibregl.NavigationControl({ visualizePitch: true }));
+  map3d.on("load", () => {
+    map3d.addSource("communes", { type: "geojson", data: props3d() });
+    map3d.addLayer({ id: "mask3d", type: "fill", source: "communes",
+      filter: ["==", ["get", "name"], "__mask__"],
+      paint: { "fill-color": css("--page"), "fill-opacity": 0.62 } });
+    map3d.addLayer({ id: "prismes", type: "fill-extrusion", source: "communes",
+      filter: ["!=", ["get", "name"], "__mask__"],
+      paint: {
+        "fill-extrusion-color": ["get", "color"],
+        "fill-extrusion-height": ["get", "h"],
+        "fill-extrusion-base": 0,
+        "fill-extrusion-opacity": 0.85,
+      } });
+    map3d.on("mousemove", "prismes", e => {
+      map3d.getCanvas().style.cursor = "pointer";
+      showTip(e.originalEvent, e.features[0].properties.name);
+    });
+    map3d.on("mouseleave", "prismes", () => { map3d.getCanvas().style.cursor = ""; hideTip(); });
+    map3d.on("click", "prismes", e => selectCommune(e.features[0].properties.name));
+    ready3d = true;
+    update3d();
+  });
+}
+function update3d() {
+  if (!ready3d || !geoData) return;
+  map3d.getSource("communes").setData(props3d());
+  map3d.setPaintProperty("mask3d", "fill-color", css("--page"));
+  map3d.setPaintProperty("osm", "raster-opacity", isDark() ? 0.35 : 1);
+}
+btn3d.addEventListener("click", () => toggle3d(!mode3d));
 
 /* ---------- Tableau triable ---------- */
 function tableRows() {
@@ -573,7 +699,10 @@ function setView(table) {
   viewBtn.querySelector("span").textContent = table ? "Vue carte" : "Vue tableau";
   viewBtn.querySelector("use").setAttribute("href", table ? "#i-map" : "#i-list");
   viewBtn.setAttribute("aria-pressed", String(table));
-  if (!table) map.invalidateSize();
+  if (!table) {
+    if (mode3d && map3d) map3d.resize();
+    else map.invalidateSize();
+  }
   writeHash();
 }
 function showMapView() { setView(false); }
@@ -598,15 +727,16 @@ function showTip(event, name) {
 function hideTip() { tooltip.style.display = "none"; }
 
 /* ---------- Démarrage ---------- */
-const startAsTable = readHash();
+const start = readHash();
 sectorSel.value = currentSector;
 applyTheme();
-if (startAsTable) setView(true);
+if (start.wantsTable) setView(true);
 if (selected) {
   const name = selected;
   selected = null;
   selectCommune(name);
 }
+if (start.wants3d) toggle3d(true);
 </script>
 </body>
 </html>

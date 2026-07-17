@@ -81,8 +81,10 @@ def test_build_writes_page_and_geojson(connection, tmp_path):
     assert "Atlas économique du Bénin" in page
     assert "COTONOU" in page and "SEME-PODJI" in page
     assert '"bounds"' in page and '"country_bounds"' in page
-    # Couche de contours écrite à côté de la page pour Leaflet.
-    assert (tmp_path / "atlas" / "communes.geojson").exists()
+    # Couche de contours écrite à côté de la page pour Leaflet, avec le
+    # masque « monde moins Bénin » qui fait ressortir le pays.
+    geojson = (tmp_path / "atlas" / "communes.geojson").read_text(encoding="utf-8")
+    assert '"__mask__"' in geojson
     # Aucune ressource chargée depuis un domaine tiers dans le HTML :
     # Leaflet est vendorisé ; seules les tuiles OSM sont demandées à
     # l'exécution par le JS (documenté, avec attribution).

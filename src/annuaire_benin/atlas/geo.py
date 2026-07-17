@@ -37,6 +37,30 @@ def load_features() -> list[dict]:
         return json.load(handle)["features"]
 
 
+def country_mask(decimals: int = 3) -> dict:
+    """Polygone « monde moins le Bénin », pour estomper l'extérieur du pays.
+
+    Anneau extérieur couvrant le monde, troué par le contour national
+    (geoBoundaries ADM0, domaine public). Dessiné en aplat semi-opaque
+    par-dessus les tuiles, il fait ressortir le pays sans priver
+    l'intérieur du détail OpenStreetMap.
+    """
+    source = resources.files("annuaire_benin.atlas").joinpath("benin_adm0.geojson")
+    with source.open(encoding="utf-8") as handle:
+        country = json.load(handle)["features"][0]["geometry"]
+
+    world_ring = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]
+    holes = [
+        [[round(lon, decimals), round(lat, decimals)] for lon, lat in ring]
+        for ring in _rings(country)
+    ]
+    return {
+        "type": "Feature",
+        "properties": {"name": "__mask__"},
+        "geometry": {"type": "Polygon", "coordinates": [world_ring, *holes]},
+    }
+
+
 def _rings(geometry: dict):
     if geometry["type"] == "Polygon":
         yield from geometry["coordinates"]
