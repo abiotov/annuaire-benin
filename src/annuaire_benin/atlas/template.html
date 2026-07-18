@@ -7,7 +7,7 @@
 <meta name="description" content="235 000 entreprises béninoises nettoyées, dédupliquées et classées : carte interactive par commune et par secteur, volume, densité par habitant et indice de spécialisation.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Atlas économique du Bénin">
-<meta property="og:description" content="235 000 entreprises sur carte interactive : volume, densité pour 1 000 habitants et spécialisation sectorielle des 77 communes, en 2D et 3D.">
+<meta property="og:description" content="235 000 entreprises sur carte interactive : volume, densité pour 1 000 habitants et spécialisation sectorielle des 77 communes, en 2D et 3D, interrogeable en français.">
 <meta property="og:url" content="https://abiotov.github.io/annuaire-benin/atlas/">
 <meta property="og:image" content="https://abiotov.github.io/annuaire-benin/atlas/og.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -17,34 +17,41 @@
   :root {
     color-scheme: light;
     --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f0efec;
+    --glass: rgba(252, 252, 251, 0.82);
     --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
     --grid: #e1e0d9; --baseline: #c3c2b7;
-    --border: rgba(11,11,11,0.10);
-    --accent: #2a78d6; --accent-soft: rgba(42,120,214,0.12);
+    --border: rgba(11, 11, 11, 0.10);
+    --accent: #2a78d6; --accent-soft: rgba(42, 120, 214, 0.12);
     --zero: #e6e5df;
-    --shadow: 0 1px 3px rgba(11,11,11,0.06), 0 8px 24px rgba(11,11,11,0.05);
+    --shadow: 0 1px 3px rgba(11,11,11,0.06), 0 10px 30px rgba(11,11,11,0.06);
+    --shadow-lg: 0 6px 18px rgba(11,11,11,0.10), 0 24px 60px rgba(11,11,11,0.12);
+    --ease: cubic-bezier(.22,.8,.26,1);
   }
   @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) {
       color-scheme: dark;
       --page: #0d0d0d; --surface: #1a1a19; --surface-2: #242423;
+      --glass: rgba(26, 26, 25, 0.82);
       --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
       --grid: #2c2c2a; --baseline: #383835;
-      --border: rgba(255,255,255,0.10);
-      --accent: #3987e5; --accent-soft: rgba(57,135,229,0.18);
+      --border: rgba(255, 255, 255, 0.10);
+      --accent: #3987e5; --accent-soft: rgba(57, 135, 229, 0.18);
       --zero: #262624;
-      --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.35);
+      --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 10px 30px rgba(0,0,0,0.35);
+      --shadow-lg: 0 6px 18px rgba(0,0,0,0.5), 0 24px 60px rgba(0,0,0,0.5);
     }
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
     --page: #0d0d0d; --surface: #1a1a19; --surface-2: #242423;
+    --glass: rgba(26, 26, 25, 0.82);
     --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
     --grid: #2c2c2a; --baseline: #383835;
-    --border: rgba(255,255,255,0.10);
-    --accent: #3987e5; --accent-soft: rgba(57,135,229,0.18);
+    --border: rgba(255, 255, 255, 0.10);
+    --accent: #3987e5; --accent-soft: rgba(57, 135, 229, 0.18);
     --zero: #262624;
-    --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.35);
+    --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 10px 30px rgba(0,0,0,0.35);
+    --shadow-lg: 0 6px 18px rgba(0,0,0,0.5), 0 24px 60px rgba(0,0,0,0.5);
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
@@ -53,86 +60,137 @@
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
     line-height: 1.45;
   }
-  .wrap { max-width: 1120px; margin: 0 auto; padding: 26px 20px 44px; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 20px 20px 44px; }
   .ic { width: 1em; height: 1em; vertical-align: -0.12em; fill: none;
         stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  button { font: inherit; cursor: pointer; }
 
-  .topbar { display: flex; align-items: flex-start; gap: 16px; }
-  .topbar .titles { flex: 1; }
-  h1 { margin: 0 0 4px; font-size: clamp(1.5rem, 4vw, 2.1rem); letter-spacing: -0.02em; }
-  .flag { display: inline-block; width: 1.05em; height: 0.72em; border-radius: 2px;
-          vertical-align: -0.06em; margin-right: 0.35em; border: 1px solid var(--border); }
-  p.sub { margin: 0; color: var(--ink-2); max-width: 62ch; }
-  #themeBtn {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
-    padding: 8px 14px; font: inherit; font-size: 0.85rem; color: var(--ink-2);
-    cursor: pointer; white-space: nowrap; box-shadow: var(--shadow);
+  /* ---- Apparition orchestrée ---- */
+  @media (prefers-reduced-motion: no-preference) {
+    .rise { opacity: 0; transform: translateY(14px);
+            animation: rise 600ms var(--ease) forwards; }
+    .rise.d1 { animation-delay: 80ms; } .rise.d2 { animation-delay: 160ms; }
+    .rise.d3 { animation-delay: 240ms; } .rise.d4 { animation-delay: 320ms; }
+    @keyframes rise { to { opacity: 1; transform: none; } }
   }
 
-  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 12px; margin: 22px 0 18px; }
-  .tile {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow);
-    transition: transform 150ms ease; display: flex; gap: 12px; align-items: center;
+  /* ---- En-tête ---- */
+  .topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -0.01em; }
+  .flag { display: inline-block; width: 24px; height: 16px; border-radius: 3px;
+          border: 1px solid var(--border); flex: none; }
+  .topbar .spacer { flex: 1; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border); border-radius: 999px;
+    padding: 7px 14px; color: var(--ink-2); font-size: 0.85rem;
+    display: inline-flex; align-items: center; gap: 7px;
+    transition: border-color 150ms, color 150ms, transform 120ms;
   }
-  .tile:hover { transform: translateY(-2px); }
-  .tile .ic { width: 22px; height: 22px; color: var(--accent); flex: none; }
-  .tile .v { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.15; }
-  .tile .l { color: var(--muted); font-size: 0.78rem; }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-ghost:active { transform: scale(0.97); }
 
-  .controls {
+  /* ---- Héros : la question au centre ---- */
+  .hero { text-align: center; margin: 0 auto 26px; max-width: 780px; }
+  .hero h1 { margin: 0 0 6px; font-size: clamp(1.6rem, 4.4vw, 2.5rem); letter-spacing: -0.03em; }
+  .hero p.sub { margin: 0 0 22px; color: var(--ink-2); font-size: 0.97rem; }
+  .searchwrap { position: relative; max-width: 640px; margin: 0 auto; }
+  .searchwrap .ic { position: absolute; left: 18px; top: 50%; transform: translateY(-50%);
+                    color: var(--muted); width: 18px; height: 18px; pointer-events: none; }
+  #communeSearch {
+    width: 100%; padding: 15px 20px 15px 46px; font-size: 1rem;
+    background: var(--surface); color: var(--ink);
+    border: 1px solid var(--baseline); border-radius: 999px;
+    box-shadow: var(--shadow); outline: none;
+    transition: box-shadow 200ms var(--ease), border-color 200ms;
+  }
+  #communeSearch:focus { border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow-lg); }
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 14px 0 0; }
+  .examples button {
+    background: transparent; border: 1px solid var(--border); border-radius: 999px;
+    padding: 6px 14px; font-size: 0.8rem; color: var(--ink-2);
+    transition: all 150ms var(--ease);
+  }
+  .examples button:hover { border-color: var(--accent); color: var(--accent);
+    background: var(--accent-soft); transform: translateY(-1px); }
+  .statline { display: flex; flex-wrap: wrap; gap: 6px 26px; justify-content: center;
+              margin: 22px 0 0; color: var(--muted); font-size: 0.85rem; }
+  .statline .stat { display: inline-flex; align-items: baseline; gap: 7px; }
+  .statline .v { color: var(--ink); font-weight: 700; font-size: 1.05rem;
+                 font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+  /* ---- Barre d'outils collante en verre ---- */
+  .toolbar {
+    position: sticky; top: 10px; z-index: 1001;
     display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
-    position: sticky; top: 0; z-index: 1001; padding: 10px 0; background: var(--page);
+    background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border); border-radius: 16px;
+    padding: 10px 12px; margin-bottom: 16px; box-shadow: var(--shadow);
   }
-  .searchwrap { position: relative; }
-  .searchwrap .ic { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
-  .controls input, .controls select, .controls button {
+  .toolbar select {
     background: var(--surface); color: var(--ink);
     border: 1px solid var(--baseline); border-radius: 10px;
-    padding: 9px 12px; font: inherit; font-size: 0.9rem;
-    max-width: 100%;
+    padding: 8px 10px; font: inherit; font-size: 0.87rem;
+    max-width: min(230px, 100%);
   }
-  #communeSearch { min-width: min(330px, 72vw); padding-left: 34px; }
-  .examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; align-items: center; }
-  .examples .lbl { color: var(--muted); font-size: 0.78rem; }
-  .examples button {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
-    padding: 4px 12px; font: inherit; font-size: 0.78rem; color: var(--ink-2); cursor: pointer;
+  @media (max-width: 480px) {
+    .seg button { padding: 8px 9px; font-size: 0.79rem; }
+    .toolbar { padding: 8px; }
   }
-  .examples button:hover { border-color: var(--accent); color: var(--accent); }
+  .seg { display: inline-flex; border: 1px solid var(--baseline); border-radius: 10px;
+         overflow: hidden; background: var(--surface); }
+  .seg button {
+    border: none; border-radius: 0; background: transparent; color: var(--ink-2);
+    padding: 8px 12px; font-size: 0.85rem;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: background 150ms, color 150ms;
+  }
+  .seg button + button { border-left: 1px solid var(--baseline); }
+  .seg button:hover { color: var(--accent); }
+  .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .toolbar .spacer { flex: 1; }
+  .btn-tool {
+    background: var(--surface); border: 1px solid var(--baseline); border-radius: 10px;
+    padding: 8px 12px; color: var(--ink-2); font-size: 0.85rem;
+    display: inline-flex; align-items: center; gap: 7px;
+    transition: border-color 150ms, color 150ms, transform 120ms;
+  }
+  .btn-tool:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-tool:active { transform: scale(0.97); }
+
+  /* ---- Réponse ---- */
   #answer { display: none; margin-bottom: 14px; border-left: 4px solid var(--accent);
-            padding: 12px 16px; }
+            background: var(--surface); border-radius: 14px; border-top: 1px solid var(--border);
+            border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+            padding: 13px 16px; box-shadow: var(--shadow); }
+  @media (prefers-reduced-motion: no-preference) {
+    #answer.show { animation: slide 350ms var(--ease); }
+    @keyframes slide { from { opacity: 0; transform: translateY(-10px); } }
+  }
   #answer .inner { display: flex; gap: 12px; align-items: baseline; }
   #answer .txt { flex: 1; font-size: 0.95rem; }
   #answer .txt b { font-variant-numeric: tabular-nums; }
   #answer .txt .muted { color: var(--muted); font-size: 0.8rem; }
-  #answer button { background: none; border: none; color: var(--muted); cursor: pointer; font: inherit; }
+  #answer button { background: none; border: none; color: var(--muted); }
   #answer button:hover { color: var(--accent); }
-  #sectorSel { max-width: min(320px, 100%); }
-  @media (max-width: 480px) {
-    .searchwrap, #communeSearch, #sectorSel { width: 100%; }
-  }
-  .controls button { cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
-  .controls button:hover, #themeBtn:hover { border-color: var(--accent); color: var(--accent); }
-  .seg { display: inline-flex; border: 1px solid var(--baseline); border-radius: 10px; overflow: hidden; }
-  .seg button { border: none; border-radius: 0; background: var(--surface); }
-  .seg button + button { border-left: 1px solid var(--baseline); }
-  .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
-  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 18px; }
-  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  /* ---- Scène : carte plein cadre, panneau flottant ---- */
+  .stage { position: relative; }
+  .view { transition: opacity 220ms var(--ease); }
+  .view.leaving { opacity: 0; }
   .card {
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: 16px; padding: 18px; box-shadow: var(--shadow);
+    border-radius: 18px; padding: 16px; box-shadow: var(--shadow);
   }
-  .maphead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 0 0 10px; }
+  .maphead { display: flex; justify-content: space-between; align-items: baseline;
+             gap: 10px; margin: 0 4px 10px; }
   .maphead .t { font-weight: 650; }
   .maphead .m { color: var(--muted); font-size: 0.78rem; text-align: right; }
-
-  #map, #map3d { height: 600px; border-radius: 10px; background: var(--surface-2); }
+  #map, #map3d { height: min(68vh, 660px); min-height: 480px; border-radius: 12px;
+                 background: var(--surface-2); }
   #map3d { display: none; }
-  @media (max-width: 860px) { #map, #map3d { height: 440px; } }
-  #map3d canvas { border-radius: 10px; }
+  #map3d canvas { border-radius: 12px; }
+  .leaflet-container { font: inherit; }
   .maplibregl-ctrl-attrib { font-size: 0.7rem; }
   :root[data-theme="dark"] .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.9) saturate(0.7); }
   :root[data-theme="dark"] .leaflet-control-zoom a,
@@ -146,63 +204,98 @@
     :root:where(:not([data-theme="light"])) .maplibregl-ctrl-group,
     :root:where(:not([data-theme="light"])) .maplibregl-ctrl-attrib { background: var(--surface); color: var(--ink-2); }
   }
-  .legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 12px; align-items: center; }
-  .legend .item { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--ink-2);
-                  padding: 2px 6px; border-radius: 6px; cursor: default; }
-  .legend .item:hover { background: var(--accent-soft); }
-  .legend .sw { width: 16px; height: 12px; border-radius: 3px; border: 1px solid var(--border); }
-  .legend .t { font-variant-numeric: tabular-nums; }
-  .legend .hint { margin-left: auto; color: var(--muted); font-size: 0.72rem; }
 
-  #panel h2 { margin: 0; font-size: 1.15rem; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
+  #panel {
+    position: absolute; top: 66px; right: 28px; bottom: 28px;
+    width: 340px; overflow-y: auto; z-index: 900;
+    background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border); border-radius: 16px;
+    padding: 16px; box-shadow: var(--shadow-lg);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    #panel.pulse { animation: panelin 380ms var(--ease); }
+    @keyframes panelin { from { opacity: 0; transform: translateX(18px); } }
+  }
+  @media (max-width: 900px) {
+    #panel { position: static; width: auto; margin-top: 14px;
+             backdrop-filter: none; background: var(--surface); box-shadow: var(--shadow); }
+    #map, #map3d { height: 62vh; min-height: 420px; }
+  }
+  #panel h2 { margin: 0; font-size: 1.1rem; letter-spacing: -0.01em;
+              display: flex; align-items: center; gap: 8px; }
   #panel h2 .ic { color: var(--accent); }
-  #panel .meta { color: var(--ink-2); font-size: 0.85rem; margin: 2px 0 6px; }
+  #panel h2 .flag { width: 20px; height: 13px; }
+  #panel .meta { color: var(--ink-2); font-size: 0.84rem; margin: 2px 0 6px; }
   #panel .badge {
     display: inline-block; background: var(--accent-soft); color: var(--accent);
-    border-radius: 999px; padding: 2px 10px; font-size: 0.75rem; font-weight: 600;
+    border-radius: 999px; padding: 2px 10px; font-size: 0.74rem; font-weight: 600;
     margin: 4px 6px 10px 0;
   }
-  #panel h3 { margin: 14px 0 6px; font-size: 0.8rem; color: var(--muted); font-weight: 600;
-              text-transform: uppercase; letter-spacing: 0.04em; }
+  #panel h3 { margin: 14px 0 6px; font-size: 0.76rem; color: var(--muted); font-weight: 600;
+              text-transform: uppercase; letter-spacing: 0.05em; }
   .bar-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; margin-bottom: 9px; }
-  .bar-row .name { font-size: 0.8rem; color: var(--ink-2); grid-column: 1 / 3; }
+  .bar-row .name { font-size: 0.79rem; color: var(--ink-2); grid-column: 1 / 3; }
   .bar-row .name.hl { color: var(--accent); font-weight: 650; }
   .bar-row .bar-track { align-self: center; background: var(--surface-2); border-radius: 0 4px 4px 0; }
   .bar-row .bar {
     height: 12px; background: var(--accent); display: block;
     border-radius: 0 4px 4px 0; min-width: 2px; width: 0;
-    transition: width 500ms cubic-bezier(.2,.7,.3,1);
+    transition: width 550ms var(--ease);
   }
   .bar-row .bar.b { background: var(--muted); }
-  .bar-row .val { font-size: 0.8rem; font-variant-numeric: tabular-nums; align-self: center; }
+  .bar-row .val { font-size: 0.79rem; font-variant-numeric: tabular-nums; align-self: center; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chips .chip { background: var(--surface-2); border-radius: 999px; padding: 3px 10px;
-                 font-size: 0.75rem; color: var(--ink-2); }
+                 font-size: 0.74rem; color: var(--ink-2); }
   .chips .chip b { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; }
   .panel-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .panel-actions button {
     background: var(--surface-2); color: var(--ink); border: 1px solid var(--border);
-    border-radius: 10px; padding: 7px 11px; font: inherit; font-size: 0.83rem; cursor: pointer;
+    border-radius: 10px; padding: 7px 11px; font-size: 0.82rem;
     display: inline-flex; align-items: center; gap: 6px;
+    transition: border-color 150ms, color 150ms, transform 120ms;
   }
   .panel-actions button:hover { border-color: var(--accent); color: var(--accent); }
-  .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 0.83rem; }
+  .panel-actions button:active { transform: scale(0.97); }
+  .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 0.82rem; }
   .cmp .h { font-weight: 650; }
   .cmp .n { font-variant-numeric: tabular-nums; }
 
+  /* ---- Légende flottante ---- */
+  .legend {
+    position: absolute; left: 28px; bottom: 28px; z-index: 900; max-width: 56%;
+    display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center;
+    background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 8px 12px; box-shadow: var(--shadow);
+  }
+  @media (max-width: 900px) {
+    .legend { position: static; max-width: none; margin-top: 12px;
+              backdrop-filter: none; background: var(--surface); }
+  }
+  .legend .item { display: flex; align-items: center; gap: 5px; font-size: 0.74rem;
+                  color: var(--ink-2); padding: 1px 5px; border-radius: 6px; cursor: default; }
+  .legend .item:hover { background: var(--accent-soft); }
+  .legend .sw { width: 14px; height: 11px; border-radius: 3px; border: 1px solid var(--border); }
+  .legend .t { font-variant-numeric: tabular-nums; }
+  .legend .hint { color: var(--muted); font-size: 0.7rem; flex-basis: 100%; }
+
+  /* ---- Tableau & panorama ---- */
   #tableView, #sectorsView { display: none; }
   table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
-  thead th { position: sticky; top: 56px; background: var(--surface); }
+  thead th { position: sticky; top: 70px; background: var(--surface); }
   th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--grid); }
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   th { color: var(--muted); font-weight: 600; font-size: 0.78rem; cursor: pointer; user-select: none; }
   th .arrow { font-size: 0.7rem; }
+  tbody tr { transition: background 120ms; }
   tbody tr:hover { background: var(--accent-soft); cursor: pointer; }
-
-  .minis { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
-  .mini { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px;
-          padding: 10px; cursor: pointer; text-align: center; transition: transform 120ms ease; }
-  .mini:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .minis { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 12px; }
+  .mini { background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px;
+          padding: 10px; cursor: pointer; text-align: center;
+          transition: transform 160ms var(--ease), border-color 160ms, box-shadow 160ms; }
+  .mini:hover { transform: translateY(-3px) scale(1.015); border-color: var(--accent);
+                box-shadow: var(--shadow); }
   .mini canvas { width: 100%; height: auto; }
   .mini .n { font-size: 0.78rem; color: var(--ink-2); margin-top: 4px; line-height: 1.25; }
   .mini .c { font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -211,13 +304,14 @@
   details.about summary { cursor: pointer; font-weight: 650; }
   details.about .cols { columns: 2 340px; gap: 28px; margin-top: 10px; }
   details.about p { margin: 0 0 10px; font-size: 0.85rem; color: var(--ink-2); }
+  details.about a { color: var(--accent); }
 
   #tooltip {
     position: fixed; pointer-events: none; display: none; z-index: 2000;
-    background: var(--surface); color: var(--ink);
+    background: var(--glass); backdrop-filter: blur(10px); color: var(--ink);
     border: 1px solid var(--border); border-radius: 10px;
     padding: 7px 11px; font-size: 0.82rem; max-width: 250px;
-    box-shadow: var(--shadow);
+    box-shadow: var(--shadow-lg);
   }
   #tooltip .n { font-variant-numeric: tabular-nums; }
   #tooltip .hint { color: var(--muted); font-size: 0.72rem; }
@@ -249,87 +343,97 @@
 </svg>
 
 <div class="wrap">
-  <div class="topbar">
-    <div class="titles">
-      <h1><svg class="flag" viewBox="0 0 15 10" aria-hidden="true"><rect width="15" height="5" y="0" fill="#fcd116"/><rect width="15" height="5" y="5" fill="#e8112d"/><rect width="6" height="10" fill="#008751"/></svg>Atlas économique du Bénin</h1>
-      <p class="sub">Les entreprises de l'annuaire national, nettoyées, dédupliquées et classées par
-      secteur, sur fond OpenStreetMap. Comptages agrégés par commune, aucune donnée individuelle.</p>
-    </div>
-    <button id="themeBtn" title="Basculer le thème"><svg class="ic"><use href="#i-contrast"/></svg> <span>Auto</span></button>
+  <div class="topbar rise">
+    <span class="brand">
+      <svg class="flag" viewBox="0 0 15 10" aria-hidden="true"><rect width="15" height="5" y="0" fill="#fcd116"/><rect width="15" height="5" y="5" fill="#e8112d"/><rect width="6" height="10" fill="#008751"/></svg>
+      Atlas économique du Bénin
+    </span>
+    <span class="spacer"></span>
+    <button id="themeBtn" class="btn-ghost" title="Basculer le thème"><svg class="ic"><use href="#i-contrast"/></svg> <span>Auto</span></button>
   </div>
 
-  <div class="tiles" id="tiles"></div>
-
-  <div class="controls">
-    <span class="searchwrap">
+  <div class="hero">
+    <h1 class="rise d1">Posez une question à l'économie béninoise</h1>
+    <p class="sub rise d1">235 000 entreprises de l'annuaire national, nettoyées, dédupliquées et
+    cartographiées. Agrégats par commune, aucune donnée individuelle.</p>
+    <div class="searchwrap rise d2">
       <svg class="ic"><use href="#i-search"/></svg>
       <input id="communeSearch" list="communesList"
-             placeholder="Poser une question ou chercher une commune..." autocomplete="off">
-    </span>
+             placeholder="combien de pressings à Cotonou ?" autocomplete="off">
+    </div>
     <datalist id="communesList"></datalist>
+    <div class="examples rise d3" id="examples">
+      <button>combien de pressings à Cotonou ?</button>
+      <button>où le BTP est-il sur-représenté ?</button>
+      <button>est-ce que Parakou a plus de restaurants que Bohicon ?</button>
+      <button>que fait-on à Natitingou ?</button>
+    </div>
+    <div class="statline rise d4" id="tiles"></div>
+  </div>
+
+  <div class="toolbar rise d4">
+    <span class="seg" role="group" aria-label="Vue">
+      <button id="btnMap" aria-pressed="true"><svg class="ic"><use href="#i-map"/></svg> Carte</button>
+      <button id="btn3d" aria-pressed="false"><svg class="ic"><use href="#i-cube"/></svg> 3D</button>
+      <button id="viewBtn" aria-pressed="false"><svg class="ic"><use href="#i-list"/></svg> <span>Tableau</span></button>
+      <button id="sectorsBtn" aria-pressed="false"><svg class="ic"><use href="#i-grid"/></svg> <span>Panorama</span></button>
+    </span>
     <select id="sectorSel" aria-label="Filtrer par secteur"><option value="">Tous les secteurs</option></select>
     <span class="seg" role="group" aria-label="Métrique affichée">
       <button data-metric="vol" aria-pressed="true">Volume</button>
-      <button data-metric="hab" aria-pressed="false" title="Entreprises pour 1 000 habitants (RGPH-4 2013)">Pour 1 000 hab.</button>
-      <button data-metric="spec" aria-pressed="false" title="Indice de spécialisation : part locale du secteur rapportée à sa part nationale">Spécialisation</button>
+      <button data-metric="hab" aria-pressed="false" title="Entreprises pour 1 000 habitants (RGPH-4 2013)">Densité</button>
+      <button data-metric="spec" aria-pressed="false" title="Part locale du secteur rapportée à sa part nationale">Spécialisation</button>
     </span>
-    <button id="randomBtn" title="Découvrir une commune au hasard"><svg class="ic"><use href="#i-shuffle"/></svg> Au hasard</button>
-    <button id="btn3d" aria-pressed="false" title="Communes en relief"><svg class="ic"><use href="#i-cube"/></svg> <span>Vue 3D</span></button>
-    <button id="viewBtn" aria-pressed="false"><svg class="ic"><use href="#i-list"/></svg> <span>Vue tableau</span></button>
-    <button id="sectorsBtn" aria-pressed="false" title="25 mini-cartes, une par secteur"><svg class="ic"><use href="#i-grid"/></svg> <span>Panorama</span></button>
-    <button id="csvBtn" title="Télécharger les agrégats commune × secteur"><svg class="ic"><use href="#i-download"/></svg> CSV</button>
+    <span class="spacer"></span>
+    <button id="randomBtn" class="btn-tool" title="Découvrir une commune au hasard"><svg class="ic"><use href="#i-shuffle"/></svg> Au hasard</button>
+    <button id="csvBtn" class="btn-tool" title="Télécharger les agrégats commune × secteur"><svg class="ic"><use href="#i-download"/></svg> CSV</button>
   </div>
 
-  <div class="examples" id="examples">
-    <span class="lbl">essayez :</span>
-    <button>combien de pressings à Cotonou ?</button>
-    <button>où le BTP est-il sur-représenté ?</button>
-    <button>que fait-on à Parakou ?</button>
-  </div>
-
-  <div id="answer" class="card" role="status">
+  <div id="answer" role="status">
     <div class="inner"><span class="txt" id="answerTxt"></span>
-    <button id="answerClose" aria-label="Fermer la réponse">✕</button></div>
+    <button id="answerClose" aria-label="Fermer la réponse"><svg class="ic"><use href="#i-x"/></svg></button></div>
   </div>
 
-  <div id="mapView" class="layout">
-    <figure class="card" style="margin:0">
-      <div class="maphead">
-        <span class="t" id="mapTitle">Toutes les entreprises</span>
-        <span class="m">survoler pour les chiffres, cliquer pour le détail, zoomer librement</span>
-      </div>
-      <div id="map" role="application" aria-label="Carte des communes du Bénin sur fond OpenStreetMap"></div>
-      <div id="map3d" role="application" aria-label="Carte 3D : communes en relief"></div>
-      <div class="legend" id="legend"><span class="hint">chargement de la couche cartographique...</span></div>
-    </figure>
-    <aside class="card" id="panel"></aside>
-  </div>
-
-  <div id="tableView" class="card">
-    <table>
-      <thead><tr>
-        <th data-k="name">Commune <span class="arrow"></span></th>
-        <th class="num" data-k="v"><span id="valHead">Entreprises</span> <span class="arrow"></span></th>
-        <th data-k="topLabel">Secteur dominant <span class="arrow"></span></th>
-        <th class="num" data-k="share">Part <span class="arrow"></span></th>
-      </tr></thead>
-      <tbody id="tableBody"></tbody>
-    </table>
-  </div>
-
-  <div id="sectorsView" class="card">
-    <div class="maphead">
-      <span class="t">Panorama des 25 secteurs</span>
-      <span class="m" id="minisHint">cliquer une carte pour explorer ce secteur</span>
+  <div class="stage">
+    <div id="mapView" class="view">
+      <figure class="card" style="margin:0; position:relative">
+        <div class="maphead">
+          <span class="t" id="mapTitle">Toutes les entreprises</span>
+          <span class="m">survoler pour les chiffres, cliquer pour le détail, zoomer librement</span>
+        </div>
+        <div id="map" role="application" aria-label="Carte des communes du Bénin sur fond OpenStreetMap"></div>
+        <div id="map3d" role="application" aria-label="Carte 3D : communes en relief"></div>
+        <div class="legend" id="legend"><span class="hint">chargement de la couche cartographique...</span></div>
+        <aside id="panel"></aside>
+      </figure>
     </div>
-    <div class="minis" id="minis"></div>
+
+    <div id="tableView" class="card view">
+      <table>
+        <thead><tr>
+          <th data-k="name">Commune <span class="arrow"></span></th>
+          <th class="num" data-k="v"><span id="valHead">Entreprises</span> <span class="arrow"></span></th>
+          <th data-k="topLabel">Secteur dominant <span class="arrow"></span></th>
+          <th class="num" data-k="share">Part <span class="arrow"></span></th>
+        </tr></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <div id="sectorsView" class="card view">
+      <div class="maphead">
+        <span class="t">Panorama des 25 secteurs</span>
+        <span class="m" id="minisHint">cliquer une carte pour explorer ce secteur</span>
+      </div>
+      <div class="minis" id="minis"></div>
+    </div>
   </div>
 
   <details class="about card" id="about">
     <summary>À propos des données et de la méthode</summary>
     <div class="cols">
       <p><b>Source.</b> Annuaire national des établissements et sociétés du Bénin, environ
-      497 000 lignes brutes ramenées à 235 360 entreprises après déduplication. Le fichier
+      497 000 lignes brutes ramenées à 235 125 entreprises après déduplication. Le fichier
       source contient des données personnelles : il n'est jamais publié, cette page ne
       contient que des comptages agrégés par commune, quartier et secteur. La date d'export
       de l'annuaire n'est pas documentée par la source, les chiffres sont donc à lire comme
@@ -346,8 +450,13 @@
       pays. Les classes de couleur du volume et de la densité sont des quantiles recalculés
       à chaque vue : deux cartes ne se comparent pas entre elles, la spécialisation utilise
       elle des seuils fixes.</p>
+      <p><b>Recherche.</b> Les questions passent d'abord par un interpréteur embarqué
+      (lexique dérivé de la classification, 77 communes, intentions) ; les formulations
+      libres sont traduites en intention structurée par une IA (Gemini) via un service qui
+      garde sa clé côté serveur. L'IA ne produit jamais un chiffre : tout est recalculé
+      depuis les agrégats de la page, et ses réponses sont étiquetées.</p>
       <p><b>Limites.</b> Le registre ne fournit aucune coordonnée GPS : la carte montre des
-      densités par commune, jamais des entreprises pointées une à une. 104 entreprises sans
+      densités par commune, jamais des entreprises pointées une à une. 103 entreprises sans
       commune sont comptées dans les totaux mais absentes de la carte.</p>
       <p><b>Accessibilité.</b> La vue tableau offre l'intégralité des chiffres au clavier
       et aux lecteurs d'écran ; les valeurs exactes y sont triables par colonne.</p>

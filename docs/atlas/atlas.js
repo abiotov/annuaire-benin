@@ -78,28 +78,27 @@ function binOf(v, cuts) {
   return bin;
 }
 
-/* ---------- Tuiles ---------- */
+/* ---------- Ligne de statistiques du héros ---------- */
 const located = P.total_entities - P.unlocated;
 const TILES = [
-  ["building", P.total_entities, "entreprises au total"],
-  ["pin", located, "localisées sur la carte"],
-  ["map", communes.length, "communes couvertes"],
-  ["users", Object.keys(P.sectors).length, "secteurs d'activité"],
+  [P.total_entities, "entreprises"],
+  [located, "localisées"],
+  [communes.length, "communes"],
+  [Object.keys(P.sectors).length, "secteurs"],
 ];
-document.getElementById("tiles").innerHTML = TILES.map(([ic, v, l]) =>
-  `<div class="tile">${icon(ic)}<div>
-   <div class="v" data-target="${v}">0</div><div class="l">${l}</div></div></div>`).join("");
+document.getElementById("tiles").innerHTML = TILES.map(([v, l]) =>
+  `<span class="stat"><b class="v" data-target="${v}">0</b><span>${l}</span></span>`).join("");
 function countUp(el) {
   const target = Number(el.dataset.target);
   if (reduceMotion) { el.textContent = fmt(target); return; }
-  const t0 = performance.now(), dur = 900;
+  const t0 = performance.now(), dur = 1100;
   (function tick(t) {
     const p = Math.min(1, (t - t0) / dur);
     el.textContent = fmt(Math.round(target * (1 - Math.pow(1 - p, 3))));
     if (p < 1) requestAnimationFrame(tick);
   })(t0);
 }
-document.querySelectorAll(".tile .v").forEach(countUp);
+document.querySelectorAll("#tiles .v").forEach(countUp);
 
 /* ---------- URL partageable ---------- */
 function readHash() {
@@ -113,7 +112,9 @@ function readHash() {
   const cmp = params.get("cmp");
   if (cmp && P.communes[cmp]) pinned = cmp;
   const v = params.get("v");
-  return { view: ["table", "sectors"].includes(v) ? v : "map", wants3d: params.get("m") === "3d" };
+  const view = ["3d", "table", "sectors"].includes(v) ? v
+    : (params.get("m") === "3d" ? "3d" : "map");  // compat anciens liens m=3d
+  return { view };
 }
 function writeHash() {
   const params = new URLSearchParams();
@@ -122,7 +123,6 @@ function writeHash() {
   if (metric !== "vol") params.set("mode", metric);
   if (pinned) params.set("cmp", pinned);
   if (currentView !== "map") params.set("v", currentView);
-  if (typeof mode3d !== "undefined" && mode3d) params.set("m", "3d");
   history.replaceState(null, "", params.size ? "#" + params.toString() : location.pathname);
 }
 
@@ -169,25 +169,36 @@ document.querySelectorAll("#examples button").forEach(btn =>
    classification, la liste des 77 communes et une petite grammaire
    d'intentions suffisent, et la réponse pilote directement la carte. */
 const foldQ = text => text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-const communesByFold = {};
-communes.forEach(name => {
-  const folded = foldQ(name);
-  communesByFold[folded] = name;
-  communesByFold[folded.replace(/[-' ]/g, "")] = name;
-});
+/* Reconnaissance des communes avec frontières de mots : sans elles,
+   « azerty » contiendrait la commune ZE (constaté par le harnais). */
+const communeMatchers = [];
+{
+  const escape = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  communes.forEach(name => {
+    const folded = foldQ(name);
+    const compact = folded.replace(/[-' ]/g, "");
+    communeMatchers.push({ name, len: folded.length, compact: false,
+      re: new RegExp(`(^|[^a-z0-9])${escape(folded)}($|[^a-z0-9])`) });
+    if (compact !== folded) {
+      communeMatchers.push({ name, len: compact.length, compact: true,
+        re: new RegExp(`(^|[^a-z0-9])${escape(compact)}($|[^a-z0-9])`) });
+    }
+  });
+}
 const sectorLabelByFold = Object.fromEntries(
   Object.entries(P.sectors).map(([id, s]) => [foldQ(s.label), id]));
 
 function findCommunes(query) {
   const compact = query.replace(/[-' ]/g, "");
   const found = new Map();  // nom -> longueur du match
-  for (const [folded, name] of Object.entries(communesByFold)) {
-    if (query.includes(folded) || compact.includes(folded)) {
-      found.set(name, Math.max(found.get(name) || 0, folded.length));
+  for (const matcher of communeMatchers) {
+    if (matcher.re.test(matcher.compact ? compact : query)) {
+      found.set(matcher.name, Math.max(found.get(matcher.name) || 0, matcher.len));
     }
   }
   return [...found.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
 }
+const ord = n => (n === 1 ? "1\u02b3\u1d49" : `${n}\u1d49`);
 function findSector(query) {
   for (const [folded, id] of Object.entries(sectorLabelByFold)) {
     if (query.includes(folded)) return id;
@@ -228,9 +239,10 @@ const lqFmt = v => v.toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + "×
 function runQuery(raw) {
   const query = foldQ(raw);
   const allCommunes = findCommunes(query);
-  // Deux communes dans la question : comparaison ou formulation riche,
-  // au-delà de la grammaire locale ; l'interprète LLM prend le relais.
-  if (allCommunes.length >= 2 && !interpreting) {
+  // Deux communes, ou une exclusion (« en dehors de X ») : au-delà de la
+  // grammaire locale, l'interprète LLM prend le relais.
+  const wantsExclude = /hors de|en dehors|sauf |excepte|a part /.test(query);
+  if ((allCommunes.length >= 2 || wantsExclude) && !interpreting) {
     askInterpreter(raw);
     return;
   }
@@ -248,7 +260,7 @@ function runQuery(raw) {
     return;
   }
 
-  setView("map");
+  showMapView();
   if (sector) { currentSector = sector; sectorSel.value = sector; }
   metric = wantsSpec && sector ? "spec" : (wantsHab ? "hab" : "vol");
   metricButtons.forEach(b => b.setAttribute("aria-pressed", String(b.dataset.metric === metric)));
@@ -267,7 +279,7 @@ function runQuery(raw) {
   } else if (sector && commune) {
     const count = P.communes[commune].sectors[sector] || 0;
     text = `<b>${commune}</b> compte <b>${fmt(count)}</b> entreprises « ${label} », ` +
-      `${sectorRank(sector, commune)}ᵉ commune du pays sur ce secteur.`;
+      `${ord(sectorRank(sector, commune))} commune du pays sur ce secteur.`;
   } else if (sector && wantsTop) {
     const top = communes.slice()
       .sort((a, b) => (P.communes[b].sectors[sector] || 0) - (P.communes[a].sectors[sector] || 0))
@@ -286,7 +298,7 @@ function runQuery(raw) {
     const c = P.communes[commune];
     const top = Object.entries(c.sectors).sort((a, b) => b[1] - a[1]).slice(0, 3);
     text = `<b>${commune}</b> : <b>${fmt(c.total)}</b> entreprises,
-      ${ranks[commune]}ᵉ commune sur ${communes.length}. Principaux secteurs : ` +
+      ${ord(ranks[commune])} commune sur ${communes.length}. Principaux secteurs : ` +
       top.map(([id, n]) => `${P.sectors[id].label} (<b>${fmt(n)}</b>)`).join(", ") + ".";
   } else {
     text = `La carte est passée en vue « pour 1 000 habitants ».`;
@@ -334,7 +346,7 @@ function executeStructured(intent, raw) {
 
   if (intent.action === "compare" && names.length === 2) {
     if (sector) { currentSector = sector; sectorSel.value = sector; }
-    setView("map");
+    showMapView();
     pinned = names[0];
     if (selected !== names[1]) selectCommune(names[1]); else renderPanel();
     render();
@@ -356,6 +368,26 @@ function executeStructured(intent, raw) {
         <b>${names[1]}</b> (${fmt(b.total)}) : détail dans le panneau.`;
     }
     showAnswer(text + " " + AI_NOTE);
+    return;
+  }
+
+  const excluded = (intent.exclure || []).filter(n => P.communes[n]);
+  if (intent.action === "top" && sector) {
+    currentSector = sector;
+    sectorSel.value = sector;
+    metric = "vol";
+    metricButtons.forEach(b => b.setAttribute("aria-pressed", String(b.dataset.metric === metric)));
+    showMapView();
+    if (selected) selectCommune(null);
+    render();
+    writeHash();
+    const top = communes.filter(n => !excluded.includes(n))
+      .sort((a, b) => (P.communes[b].sectors[sector] || 0) - (P.communes[a].sectors[sector] || 0))
+      .slice(0, 3);
+    const suffix = excluded.length ? ` (hors ${excluded.join(" et ")})` : "";
+    showAnswer(`Le plus de « ${label} »${suffix} : `
+      + top.map((n, i) => `${i + 1}. ${n} (<b>${fmt(P.communes[n].sectors[sector] || 0)}</b>)`).join(", ")
+      + ". " + AI_NOTE);
     return;
   }
 
@@ -383,13 +415,16 @@ const answerCard = document.getElementById("answer");
 function showAnswer(html) {
   document.getElementById("answerTxt").innerHTML = html;
   answerCard.style.display = "block";
+  answerCard.classList.remove("show");
+  void answerCard.offsetWidth;
+  answerCard.classList.add("show");
 }
 function hideAnswer() { answerCard.style.display = "none"; }
 document.getElementById("answerClose").addEventListener("click", hideAnswer);
 document.getElementById("randomBtn").addEventListener("click", () => {
   const pool = communes.filter(n => n !== selected);
   selectCommune(pool[Math.floor(Math.random() * pool.length)]);
-  setView("map");
+  showMapView();
 });
 
 /* ---------- Export CSV des agrégats ---------- */
@@ -592,7 +627,7 @@ function comparePanel(panel) {
       <span class="h">${a}</span><span class="h" style="color:var(--muted)">${b}</span>
       <span class="n">${fmt(ca.total)} entreprises</span><span class="n">${fmt(cb.total)} entreprises</span>
       <span class="n">${perThousand(ca)} / 1 000 hab.</span><span class="n">${perThousand(cb)} / 1 000 hab.</span>
-      <span class="n">${ranks[a]}ᵉ sur 77</span><span class="n">${ranks[b]}ᵉ sur 77</span>
+      <span class="n">${ord(ranks[a])} sur 77</span><span class="n">${ord(ranks[b])} sur 77</span>
     </div>
     <h3>Secteurs (barre bleue : ${a})</h3>
     ${rows}
@@ -613,7 +648,7 @@ function renderPanel() {
     panel.innerHTML = `<h2>${icon("pin")} ${selected}</h2>
       <div class="meta">${fmt(c.total)} entreprises · ${fmt(c.pop)} habitants (2013) ·
       ${perThousand(c)} entreprises pour 1 000 habitants</div>
-      <span class="badge">${ranks[selected]}ᵉ commune sur ${communes.length}</span>
+      <span class="badge">${ord(ranks[selected])} commune sur ${communes.length}</span>
       ${pinned === selected ? '<span class="badge">épinglée : cliquez une autre commune</span>' : ""}
       <h3>10 premiers secteurs</h3>
       ${sectorBars(c.sectors)}
@@ -656,6 +691,10 @@ function selectCommune(name) {
     flyTo(target);
   }
   renderPanel();
+  const panel = document.getElementById("panel");
+  panel.classList.remove("pulse");
+  void panel.offsetWidth;
+  panel.classList.add("pulse");
   writeHash();
 }
 
@@ -691,15 +730,11 @@ function props3d() {
     }),
   };
 }
-async function toggle3d(on) {
+async function ensure3d(on) {
   mode3d = on;
-  btn3d.querySelector("span").textContent = on ? "Vue 2D" : "Vue 3D";
-  btn3d.setAttribute("aria-pressed", String(on));
   document.getElementById("map").style.display = on ? "none" : "block";
   document.getElementById("map3d").style.display = on ? "block" : "none";
-  writeHash();
   if (!on) { map.invalidateSize(); return; }
-  setView("map");
   try {
     await loadMapLibre();
     if (!map3d) init3d();
@@ -750,7 +785,6 @@ function update3d() {
   map3d.setPaintProperty("mask3d", "fill-color", css("--page"));
   map3d.setPaintProperty("osm", "raster-opacity", isDark() ? 0.35 : 1);
 }
-btn3d.addEventListener("click", () => toggle3d(!mode3d));
 
 /* ---------- Panorama : 25 mini-cartes ---------- */
 let miniShapes = null;  // contours normalisés dans [0,1] × [0,1], calculés une fois
@@ -830,7 +864,7 @@ function renderMinis() {
       const open = () => {
         currentSector = card.dataset.sector;
         sectorSel.value = currentSector;
-        setView("map");
+        showMapView();
         render();
         writeHash();
       };
@@ -880,30 +914,35 @@ document.querySelectorAll("thead th").forEach(th => {
 });
 document.getElementById("tableBody").addEventListener("click", event => {
   const row = event.target.closest("tr");
-  if (row) { selectCommune(row.dataset.name); setView("map"); }
+  if (row) { selectCommune(row.dataset.name); showMapView(); }
 });
 
-/* ---------- Vues : carte / tableau / panorama ---------- */
+/* ---------- Vues : carte / 3D / tableau / panorama ---------- */
 const viewBtn = document.getElementById("viewBtn");
 const sectorsBtn = document.getElementById("sectorsBtn");
+const btnMap = document.getElementById("btnMap");
+const VIEW_BUTTONS = { map: btnMap, "3d": btn3d, table: viewBtn, sectors: sectorsBtn };
 function setView(view) {
   currentView = view;
-  document.getElementById("mapView").style.display = view === "map" ? "grid" : "none";
+  const inMap = view === "map" || view === "3d";
+  document.getElementById("mapView").style.display = inMap ? "block" : "none";
   document.getElementById("tableView").style.display = view === "table" ? "block" : "none";
   document.getElementById("sectorsView").style.display = view === "sectors" ? "block" : "none";
-  viewBtn.querySelector("span").textContent = view === "table" ? "Vue carte" : "Vue tableau";
-  viewBtn.querySelector("use").setAttribute("href", view === "table" ? "#i-map" : "#i-list");
-  viewBtn.setAttribute("aria-pressed", String(view === "table"));
-  sectorsBtn.setAttribute("aria-pressed", String(view === "sectors"));
-  if (view === "map") {
-    if (mode3d && map3d) map3d.resize();
-    else map.invalidateSize();
+  for (const [key, btn] of Object.entries(VIEW_BUTTONS)) {
+    btn.setAttribute("aria-pressed", String(key === view));
   }
+  if (inMap) ensure3d(view === "3d");
   if (view === "sectors") renderMinis();
   writeHash();
 }
-viewBtn.addEventListener("click", () => setView(currentView === "table" ? "map" : "table"));
-sectorsBtn.addEventListener("click", () => setView(currentView === "sectors" ? "map" : "sectors"));
+/* Revenir sur la carte sans perdre le mode 3D en cours. */
+function showMapView() {
+  if (currentView === "table" || currentView === "sectors") setView(mode3d ? "3d" : "map");
+}
+btnMap.addEventListener("click", () => setView("map"));
+btn3d.addEventListener("click", () => setView(currentView === "3d" ? "map" : "3d"));
+viewBtn.addEventListener("click", () => setView(currentView === "table" ? (mode3d ? "3d" : "map") : "table"));
+sectorsBtn.addEventListener("click", () => setView(currentView === "sectors" ? (mode3d ? "3d" : "map") : "sectors"));
 
 /* ---------- Infobulle ---------- */
 const tooltip = document.getElementById("tooltip");
@@ -911,7 +950,7 @@ function showTip(event, name) {
   const c = P.communes[name];
   const v = valueOf(name);
   const extra = metric === "vol"
-    ? `${ranks[name]}ᵉ/${communes.length}`
+    ? `${ord(ranks[name])}/${communes.length}`
     : `${fmt(currentSector ? (c.sectors[currentSector] || 0) : c.total)} entreprises`;
   tooltip.innerHTML = `<strong>${name}</strong><br>
     <span class="n">${fmtV(v)}</span> · ${METRIC_LABEL[metric].toLowerCase()} · ${extra}<br>
@@ -935,4 +974,3 @@ if (selected) {
   selected = null;
   selectCommune(name);
 }
-if (start.wants3d) toggle3d(true);

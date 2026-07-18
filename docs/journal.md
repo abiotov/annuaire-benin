@@ -1,5 +1,14 @@
 # Journal du projet
 
+## 2026-07-18 (suite) : harnais de test complet et refonte du design
+
+Sur exigence d'Etienne (« teste tout », « hyper dynamique et très impressionnant ») :
+
+- **Harnais Playwright local** (`playwright-core` sur le Edge installé) : matrice de 18 vérifications rejouable en une commande : 12 questions types (locales, IA, comparaison, exclusion, charabia), les 4 vues, le thème, l'export CSV, l'absence de débordement mobile à 390 px, la collecte des erreurs JS.
+- **Bugs débusqués par le harnais et corrigés** : « azerty » sélectionnait la commune ZE (correspondance en sous-chaîne, remplacée par des frontières de mots) ; « en dehors de Cotonou » répondait Cotonou (notion d'exclusion ajoutée de bout en bout : routage local, schéma du Worker, classement filtré : « hors COTONOU : 1. Abomey-Calavi... ») ; ordinaux cassés par une passe de correction antérieure (« 5 commune » → « 5ᵉ », « 1ʳᵉ »).
+- **Refonte du design** : héros « Posez une question à l'économie béninoise » avec la recherche en barre de commande centrale (halo de focus, pilules d'exemples cliquables), ligne de statistiques animée, barre d'outils collante en verre dépoli avec bascule de vues unifiée [Carte · 3D · Tableau · Panorama], **panneau flottant en verre par-dessus la carte** (glissement à la sélection), légende flottante, carte de réponse animée, micro-interactions sur tous les contrôles, apparition orchestrée au chargement, le tout débrayé par `prefers-reduced-motion` et fonctionnel en clair, sombre et mobile (vérifié sur captures).
+- L'état 3D vit maintenant dans l'URL comme une vue (`v=3d`), les anciens liens `m=3d` restent compris.
+
 ## 2026-07-18 (suite) : la couche LLM de la recherche, déployée proprement
 
 Etienne a validé l'option « proxy serveur » : la recherche gagne une seconde couche pour la langue libre, sans jamais exposer de clé.

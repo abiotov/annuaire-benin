@@ -81,8 +81,10 @@ sur/sous-représentation), compare (comparer exactement 2 communes).
 Secteurs possibles (utilise l'identifiant exact, null si aucun) : ${sectors}.
 Les communes sont les 77 communes du Bénin, en MAJUSCULES (ex. COTONOU,
 PARAKOU, ABOMEY-CALAVI, SEME-PODJI). 0, 1 ou 2 communes.
+Si la question EXCLUT une commune (« en dehors de X », « sauf X »), mets-la
+dans "exclure" et pas dans "communes".
 Réponds UNIQUEMENT ce JSON : {"action": "...", "sector": "..."|null,
-"communes": ["..."], "confiance": 0.0-1.0}
+"communes": ["..."], "exclure": ["..."], "confiance": 0.0-1.0}
 Question : ${question}`;
 }
 
@@ -114,11 +116,11 @@ async function parseWithGemini(question, apiKey) {
 
   const action = ACTIONS.has(parsed.action) ? parsed.action : null;
   const sector = SECTORS[parsed.sector] ? parsed.sector : null;
-  const communes = Array.isArray(parsed.communes)
-    ? parsed.communes.filter(c => typeof c === "string").map(c => c.toUpperCase()).slice(0, 2)
-    : [];
+  const clean = list => (Array.isArray(list)
+    ? list.filter(c => typeof c === "string").map(c => c.toUpperCase()).slice(0, 2)
+    : []);
   if (!action) throw new Error("action invalide");
-  return { action, sector, communes };
+  return { action, sector, communes: clean(parsed.communes), exclure: clean(parsed.exclure) };
 }
 
 export default {
