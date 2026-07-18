@@ -31,9 +31,9 @@ Les annuaires d'entreprises d'Afrique de l'Ouest existent, mais à l'état brut 
 | Emails syntaxiquement valides | 99,7 % |
 | Entités après déduplication exacte | 235 360 (soit 53 % de copies inter-onglets) |
 | Paires candidates au rapprochement flou | 280 377 (sur 27 milliards possibles) |
-| Jeu de vérité annoté | 420 paires (58 oui, 270 non, 92 à arbitrer) |
-| Précision de la fusion automatique (mesurée, après calibration) | 82,5 % (contre 51,8 % avant) |
-| Fusions appliquées | 184 automatiques + 52 issues de l'arbitrage LLM validées en revue |
+| Jeu de vérité annoté, complet | 420 paires (95 oui, 325 non) |
+| Précision de la fusion automatique (mesurée sur le gold complet) | 83,1 % (contre 51,8 % avant calibration) |
+| Fusions appliquées | 184 automatiques + 87 validées en revue |
 | Entreprises finales après déduplication | 235 125 |
 | Entités classées par secteur (25 secteurs) | 235 360 (100 %) |
 | Entreprises localisées sur la carte (77 communes) | 235 022 (103 sans commune) |

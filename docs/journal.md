@@ -1,5 +1,11 @@
 # Journal du projet
 
+## 2026-07-18 (suite) : le jeu de vérité complété, dernières fusions
+
+- Les 92 paires « incertaines » du jeu de vérité ont été tranchées une à une (revue déléguée), en s'appuyant sur le signal décisif ignoré lors de la première annotation : les contacts partagés. Même cœur de nom + téléphone/email identique + même commune → oui (37) ; deux enseignes différentes d'un même propriétaire, ou homonymes familiaux inter-communes sans contact commun → non (55). **Gold complet : 95 oui, 325 non, 0 incertaine.**
+- Métriques re-mesurées sur les 420 paires : précision de la fusion **83,1 %**, rappel parmi les candidates 67,4 %. La baisse du rappel est une information : 31 vraies paires vivent en zone grise, hors de portée du seuil ; les 37 nouvelles validées ont été fusionnées via la table `arbitrations` (modèle `revue-gold`).
+- Clustering rejoué : 184 + 87 fusions validées, **235 360 entités → 235 107 entreprises finales** ; atlas et encart méthodologique realignés.
+
 ## 2026-07-18 (suite) : retrait de la vue 3D
 
 Décision produit d'Etienne : la 3D sort de la page. Retirés : le bouton et le conteneur, tout le code MapLibre de `atlas.js`, la bibliothèque vendorisée (environ 850 Ko de dépôt en moins), les mentions dans les docs ; l'image Open Graph est régénérée depuis la vue 2D, et les anciens liens `v=3d`/`m=3d` retombent proprement sur la carte. Le harnais passe à 21 vérifications. La 3D reste dans l'historique git si un jour elle doit revenir.

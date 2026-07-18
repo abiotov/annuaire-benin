@@ -77,8 +77,8 @@ Une ligne par paire candidate issue du blocking : canaux qui l'ont proposée, sc
 | Zone grise | 56 896 |
 | Rejets | 223 297 |
 | Fusions refusées par le garde-fou anti méga-cluster | 0 |
-| Fusions supplémentaires issues de l'arbitrage, validées en revue | 52 |
-| Entreprises finales | 235 125 |
+| Fusions supplémentaires validées en revue (arbitrage LLM + gold) | 87 |
+| Entreprises finales | 235 107 |
 
 ### Jeu de vérité et calibration (2026-07-16)
 
@@ -88,12 +88,14 @@ Une ligne par paire candidate issue du blocking : canaux qui l'ont proposée, sc
 - **non** : cœurs de nom distinctifs différents, même si les mots génériques ou une expression pieuse commune coïncident (« GLOIRE DE DIEU », « CHEZ X ») ;
 - **incertain** : mêmes noms de famille ou marques mais succursale, homonyme ou membre de famille plausible ; en attente d'arbitrage humain.
 
-Résultat : 58 oui, 270 non, 92 incertain. Annotation réalisée par revue assistée (l'assistant a proposé chaque label suivant les règles ci-dessus, les 92 incertains sont réservés à l'arbitrage humain). Les incertains sont écartés des métriques.
+Résultat initial : 58 oui, 270 non, 92 incertain (annotation par revue assistée). Le 2026-07-18, les 92 incertaines ont été tranchées une à une avec le signal des contacts partagés (téléphone ou email identique) : 37 oui, 55 non. **Le jeu de vérité est complet : 95 oui, 325 non, 0 incertaine.**
 
-| Métrique (paires tranchées) | Seuil initial 0,82 | Seuil calibré 0,90 |
-|---|---:|---:|
-| Précision de la zone de fusion | 51,8 % | **82,5 %** |
-| Rappel parmi les candidates | 98,3 % | 81,0 % |
+| Métrique | Seuil initial 0,82 (partiel) | Seuil 0,90 (partiel) | Seuil 0,90 (gold complet) |
+|---|---:|---:|---:|
+| Précision de la zone de fusion | 51,8 % | 82,5 % | **83,1 %** |
+| Rappel parmi les candidates | 98,3 % | 81,0 % | 67,4 % |
+
+La baisse du rappel sur le gold complet est une information, pas une régression : les paires autrefois « incertaines » désormais confirmées vivent surtout en zone grise (31 vraies paires y restent), hors de portée de la fusion automatique ; 87 d'entre elles, validées en revue, ont été fusionnées à la main via la table `arbitrations`.
 
 La courbe par bande de score a dicté la coupure : 0 % de vraies paires sous 0,80, 20 % dans [0,80, 0,90), 82,5 % dans [0,90, 1,0]. Les erreurs restantes de la zone de fusion sont concentrées sur les noms identiques mais génériques (enseignes pieuses partagées par des commerces différents) : c'est le travail de l'étape d'arbitrage.
 
