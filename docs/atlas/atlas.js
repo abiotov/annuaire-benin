@@ -260,6 +260,14 @@ function runQuery(raw) {
     return;
   }
 
+  // Une nouvelle question non comparative repart d'un panneau propre :
+  // sans ça, une comparaison passée restait épinglée et s'affichait
+  // pour toutes les questions suivantes. Seule exception : taper le nom
+  // nu d'une commune pendant qu'une autre est épinglée, c'est la façon
+  // légitime de compléter la comparaison.
+  const bareCommune = commune && foldQ(raw).trim() === foldQ(commune);
+  if (!(pinned && bareCommune)) pinned = null;
+
   showMapView();
   if (sector) { currentSector = sector; sectorSel.value = sector; }
   metric = wantsSpec && sector ? "spec" : (wantsHab ? "hab" : "vol");
@@ -371,6 +379,7 @@ function executeStructured(intent, raw) {
     return;
   }
 
+  pinned = null;  // toute intention non comparative désépingle
   const excluded = (intent.exclure || []).filter(n => P.communes[n]);
   if (intent.action === "top" && sector) {
     currentSector = sector;
@@ -933,6 +942,9 @@ function setView(view) {
   }
   if (inMap) ensure3d(view === "3d");
   if (view === "sectors") renderMinis();
+  // La carte de réponse décrit un état de la carte : hors des vues
+  // cartographiques, elle deviendrait un texte orphelin.
+  if (!inMap) hideAnswer();
   writeHash();
 }
 /* Revenir sur la carte sans perdre le mode 3D en cours. */
