@@ -23,7 +23,10 @@ def connection():
         "CREATE TABLE raw_contacts (id INTEGER PRIMARY KEY, entity_id INTEGER,"
         " commune TEXT, quartier TEXT)"
     )
-    conn.execute("CREATE TABLE entities (id INTEGER PRIMARY KEY, sector TEXT)")
+    conn.execute(
+        "CREATE TABLE entities (id INTEGER PRIMARY KEY, sector TEXT,"
+        " cluster_id INTEGER, member_rows INTEGER NOT NULL DEFAULT 1)"
+    )
     conn.executemany("INSERT INTO raw_contacts VALUES (?, ?, ?, ?)", [
         # Entité 1 : majoritairement à COTONOU.
         (1, 1, "COTONOU", "QUARTIER A"), (2, 1, "COTONOU", "QUARTIER A"),
@@ -32,24 +35,30 @@ def connection():
         (4, 2, "SEME-PODJI", "QUARTIER B"),
         # Entité 3 : aucune commune -> non localisée.
         (5, 3, None, None),
+        # Entité 4 : fusionnée avec l'entité 1 (même cluster).
+        (6, 4, "COTONOU", "QUARTIER A"),
     ])
-    conn.executemany("INSERT INTO entities VALUES (?, ?)", [
-        (1, "commerce-alimentaire"), (2, "services-divers"), (3, "immobilier"),
+    conn.executemany("INSERT INTO entities VALUES (?, ?, ?, ?)", [
+        (1, "commerce-alimentaire", 1, 2),
+        (2, "services-divers", None, 1),
+        (3, "immobilier", None, 1),
+        (4, "commerce-alimentaire", 1, 1),  # doublon validé de l'entité 1
     ])
     yield conn
     conn.close()
 
 
-def test_aggregate_counts_majority_commune_and_unlocated(connection):
+def test_aggregate_counts_clusters_majority_commune_and_unlocated(connection):
     data = aggregate(connection)
+    # 4 entités mais 3 entreprises : les entités 1 et 4 partagent un cluster.
     assert data["total_entities"] == 3
     assert data["unlocated"] == 1
     cotonou = data["communes"]["COTONOU"]
     assert cotonou["total"] == 1
     assert cotonou["sectors"] == {"commerce-alimentaire": 1}
     assert cotonou["pop"] == 679012  # RGPH-4 2013
-    assert cotonou["quartiers"] == [["QUARTIER A", 1]]
-    assert "PARAKOU" not in data["communes"]  # minoritaire pour l'entité 1
+    assert cotonou["quartiers"] == [["QUARTIER A", 2]]
+    assert "PARAKOU" not in data["communes"]  # minoritaire pour le cluster 1
     assert data["sectors"]["immobilier"]["total"] == 1  # comptée nationalement
 
 

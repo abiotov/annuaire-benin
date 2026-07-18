@@ -1,5 +1,12 @@
 # Journal du projet
 
+## 2026-07-18 : revue des paires arbitrées et atlas cohérent avec la déduplication
+
+- Revue une à une des 63 paires « même » confirmées par l'arbitrage (déléguée à l'assistant par Etienne) : **52 validées** (typos, réordonnancements, suffixes sur nom distinctif, souvent avec contact partagé), **7 rejetées** (deux boutiques d'un même propriétaire comme IBM ESTHETIK / IBM FASHION, membres d'une famille comme SAIBOU / MOUSSA SEYBOU), **4 laissées indécises**. Décisions tracées dans `data/revue_zone_grise_validee.csv` (privé) et dans la table `arbitrations`.
+- Clustering rejoué avec les fusions validées : 184 + 52 arêtes, **235 360 entités → 235 125 entreprises finales** (un triangle de 3 fiches, FEMI FESTI'HALL, fusionne en une).
+- Incohérence de la revue senior réglée : l'atlas comptait les entités, il compte désormais les **entreprises finales** (une par cluster de déduplication, commune et secteur majoritaires pondérés par les lignes brutes). Tuiles de l'atlas : 235 125 entreprises, 235 022 localisées, 103 sans commune.
+- Incident mineur : le CSV de revue était verrouillé par Excel, les validations sont écrites dans un nouveau fichier `_validee.csv`.
+
 ## 2026-07-17 (suite) : étape 2c, l'arbitrage LLM mesuré puis refusé
 
 Etienne a fourni une clé Gemini (stockée dans `data/.env`, ignorée par git, `.gitignore` renforcé sur `*.env`).

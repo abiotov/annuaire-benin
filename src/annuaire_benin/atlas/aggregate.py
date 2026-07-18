@@ -3,9 +3,12 @@
 Produit uniquement des comptages agrégés (jamais de donnée
 individuelle) : c'est ce qui rend l'atlas publiable.
 
-Chaque entité est comptée dans sa commune principale (la commune la
-plus fréquente parmi ses lignes brutes). Les entités sans commune sont
-comptées à part (« non localisées »), jamais écartées en silence.
+L'unité comptée est l'entreprise finale : les entités fusionnées par
+la déduplication (baseline + fusions validées en revue) partagent un
+``cluster_id`` et comptent pour une seule entreprise, dans la commune
+et le secteur majoritaires de leurs lignes. Les entreprises sans
+commune sont comptées à part (« non localisées »), jamais écartées en
+silence.
 """
 
 from __future__ import annotations
@@ -19,8 +22,8 @@ from annuaire_benin.classify.taxonomy import SECTORS
 TOP_QUARTIERS = 8
 
 
-def _main_communes(connection: sqlite3.Connection) -> dict[int, str]:
-    """Commune la plus fréquente de chaque entité (absentes exclues)."""
+def _commune_counters(connection: sqlite3.Connection) -> dict[int, Counter]:
+    """Occurrences de chaque commune dans les lignes brutes, par entité."""
     per_entity: dict[int, Counter] = {}
     query = (
         "SELECT entity_id, commune, COUNT(*) FROM raw_contacts"
@@ -29,10 +32,7 @@ def _main_communes(connection: sqlite3.Connection) -> dict[int, str]:
     )
     for entity_id, commune, count in connection.execute(query):
         per_entity.setdefault(entity_id, Counter())[commune] += count
-    return {
-        entity_id: communes.most_common(1)[0][0]
-        for entity_id, communes in per_entity.items()
-    }
+    return per_entity
 
 
 def _top_quartiers(connection: sqlite3.Connection) -> dict[str, list]:
@@ -51,25 +51,38 @@ def _top_quartiers(connection: sqlite3.Connection) -> dict[str, list]:
 
 
 def aggregate(connection: sqlite3.Connection) -> dict:
-    """Comptages agrégés : national, par secteur, par commune × secteur."""
-    communes = _main_communes(connection)
+    """Comptages agrégés : national, par secteur, par commune × secteur.
+
+    Une entreprise = un cluster de déduplication ; ses attributs sont
+    les majoritaires de ses membres, pondérés par leurs lignes brutes.
+    """
+    commune_counters = _commune_counters(connection)
     population = load_population()
     quartiers = _top_quartiers(connection)
 
+    clusters: dict[int, dict] = {}
+    for entity_id, cluster_id, sector, member_rows in connection.execute(
+        "SELECT id, COALESCE(cluster_id, id), sector, member_rows FROM entities"
+        " WHERE sector IS NOT NULL"
+    ):
+        cluster = clusters.setdefault(
+            cluster_id, {"sectors": Counter(), "communes": Counter()}
+        )
+        cluster["sectors"][sector] += member_rows
+        cluster["communes"].update(commune_counters.get(entity_id, {}))
+
     sector_totals: Counter = Counter()
     commune_data: dict[str, dict] = {}
-    total = 0
+    total = len(clusters)
     unlocated = 0
 
-    for entity_id, sector in connection.execute(
-        "SELECT id, sector FROM entities WHERE sector IS NOT NULL"
-    ):
-        total += 1
+    for cluster in clusters.values():
+        sector = cluster["sectors"].most_common(1)[0][0]
         sector_totals[sector] += 1
-        commune = communes.get(entity_id)
-        if commune is None:
+        if not cluster["communes"]:
             unlocated += 1
             continue
+        commune = cluster["communes"].most_common(1)[0][0]
         entry = commune_data.setdefault(commune, {"total": 0, "sectors": Counter()})
         entry["total"] += 1
         entry["sectors"][sector] += 1

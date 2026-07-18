@@ -77,7 +77,8 @@ Une ligne par paire candidate issue du blocking : canaux qui l'ont proposée, sc
 | Zone grise | 56 896 |
 | Rejets | 223 297 |
 | Fusions refusées par le garde-fou anti méga-cluster | 0 |
-| Entreprises finales | 235 176 |
+| Fusions supplémentaires issues de l'arbitrage, validées en revue | 52 |
+| Entreprises finales | 235 125 |
 
 ### Jeu de vérité et calibration (2026-07-16)
 
