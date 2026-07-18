@@ -112,9 +112,7 @@ function readHash() {
   const cmp = params.get("cmp");
   if (cmp && P.communes[cmp]) pinned = cmp;
   const v = params.get("v");
-  const view = ["3d", "table", "sectors"].includes(v) ? v
-    : (params.get("m") === "3d" ? "3d" : "map");  // compat anciens liens m=3d
-  return { view };
+  return { view: ["table", "sectors"].includes(v) ? v : "map" };
 }
 function writeHash() {
   const params = new URLSearchParams();
@@ -554,7 +552,6 @@ function render() {
   }
   if (maskLayer) maskLayer.setStyle(maskStyle());
   renderLegend(cuts);
-  if (mode3d) update3d();
 }
 
 function renderLegend(cuts) {
@@ -695,114 +692,13 @@ function selectCommune(name) {
   if (previous) styleLayer(previous);
   const target = selected ? P.communes[selected].bounds : P.country_bounds;
   if (selected) styleLayer(selected);
-  if (mode3d && ready3d) {
-    map3d.fitBounds([[target[0][1], target[0][0]], [target[1][1], target[1][0]]],
-      { padding: 60, pitch: map3d.getPitch(), bearing: map3d.getBearing(),
-        duration: reduceMotion ? 0 : 1200 });
-  } else {
-    flyTo(target);
-  }
+  flyTo(target);
   renderPanel();
   const panel = document.getElementById("panel");
   panel.classList.remove("pulse");
   void panel.offsetWidth;
   panel.classList.add("pulse");
   writeHash();
-}
-
-/* ---------- Vue 3D (MapLibre GL vendorisé, chargé à la demande) ---------- */
-let mode3d = false, map3d = null, maplibreReady = null, ready3d = false;
-const btn3d = document.getElementById("btn3d");
-function loadMapLibre() {
-  maplibreReady = maplibreReady || new Promise((resolve, reject) => {
-    const link = document.createElement("link");
-    link.rel = "stylesheet"; link.href = "vendor/maplibre/maplibre-gl.css";
-    document.head.appendChild(link);
-    const script = document.createElement("script");
-    script.src = "vendor/maplibre/maplibre-gl.js";
-    script.onload = resolve; script.onerror = reject;
-    document.head.appendChild(script);
-  });
-  return maplibreReady;
-}
-function props3d() {
-  const colors = rampFor();
-  const maxV = Math.max(...communes.map(n => valueOf(n) || 0), 1e-9);
-  return {
-    type: "FeatureCollection",
-    features: geoData.features.map(f => {
-      const name = f.properties.name;
-      if (name === "__mask__") return f;
-      const v = valueOf(name);
-      return { ...f, properties: {
-        name, v,
-        h: v === null || v === 0 ? 0 : Math.sqrt(v / maxV) * 60000,
-        color: v === null || v === 0 ? css("--zero") : colors[lastBins[name]],
-      } };
-    }),
-  };
-}
-async function ensure3d(on) {
-  mode3d = on;
-  document.getElementById("map").style.display = on ? "none" : "block";
-  document.getElementById("map3d").style.display = on ? "block" : "none";
-  if (!on) { map.invalidateSize(); return; }
-  try {
-    await loadMapLibre();
-    if (!map3d) init3d();
-    else { map3d.resize(); update3d(); fly3dToSelection(); }
-  } catch {
-    document.getElementById("legend").innerHTML =
-      '<span class="hint">vue 3D indisponible (hors ligne ?)</span>';
-  }
-}
-function init3d() {
-  map3d = new maplibregl.Map({
-    container: "map3d",
-    style: { version: 8, sources: {
-      osm: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-             tileSize: 256,
-             attribution: "© contributeurs <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>" },
-    }, layers: [{ id: "osm", type: "raster", source: "osm" }] },
-    center: [2.34, 9.3], zoom: 6.1, pitch: 55, bearing: -12,
-    attributionControl: { compact: true },
-  });
-  map3d.addControl(new maplibregl.NavigationControl({ visualizePitch: true }));
-  map3d.on("load", () => {
-    map3d.addSource("communes", { type: "geojson", data: props3d() });
-    map3d.addLayer({ id: "mask3d", type: "fill", source: "communes",
-      filter: ["==", ["get", "name"], "__mask__"],
-      paint: { "fill-color": css("--page"), "fill-opacity": 0.62 } });
-    map3d.addLayer({ id: "prismes", type: "fill-extrusion", source: "communes",
-      filter: ["!=", ["get", "name"], "__mask__"],
-      paint: {
-        "fill-extrusion-color": ["get", "color"],
-        "fill-extrusion-height": ["get", "h"],
-        "fill-extrusion-base": 0,
-        "fill-extrusion-opacity": 0.85,
-      } });
-    map3d.on("mousemove", "prismes", e => {
-      map3d.getCanvas().style.cursor = "pointer";
-      showTip(e.originalEvent, e.features[0].properties.name);
-    });
-    map3d.on("mouseleave", "prismes", () => { map3d.getCanvas().style.cursor = ""; hideTip(); });
-    map3d.on("click", "prismes", e => selectCommune(e.features[0].properties.name));
-    ready3d = true;
-    update3d();
-    fly3dToSelection();
-  });
-}
-function fly3dToSelection() {
-  if (!selected || !map3d) return;
-  const b = P.communes[selected].bounds;
-  map3d.fitBounds([[b[0][1], b[0][0]], [b[1][1], b[1][0]]],
-    { padding: 60, pitch: 55, duration: reduceMotion ? 0 : 1200 });
-}
-function update3d() {
-  if (!ready3d || !geoData) return;
-  map3d.getSource("communes").setData(props3d());
-  map3d.setPaintProperty("mask3d", "fill-color", css("--page"));
-  map3d.setPaintProperty("osm", "raster-opacity", isDark() ? 0.35 : 1);
 }
 
 /* ---------- Panorama : 25 mini-cartes ---------- */
@@ -941,35 +837,32 @@ document.getElementById("tableBody").addEventListener("click", event => {
   if (row) { selectCommune(row.dataset.name); showMapView(); }
 });
 
-/* ---------- Vues : carte / 3D / tableau / panorama ---------- */
+/* ---------- Vues : carte / tableau / panorama ---------- */
 const viewBtn = document.getElementById("viewBtn");
 const sectorsBtn = document.getElementById("sectorsBtn");
 const btnMap = document.getElementById("btnMap");
-const VIEW_BUTTONS = { map: btnMap, "3d": btn3d, table: viewBtn, sectors: sectorsBtn };
+const VIEW_BUTTONS = { map: btnMap, table: viewBtn, sectors: sectorsBtn };
 function setView(view) {
   currentView = view;
-  const inMap = view === "map" || view === "3d";
-  document.getElementById("mapView").style.display = inMap ? "block" : "none";
+  document.getElementById("mapView").style.display = view === "map" ? "block" : "none";
   document.getElementById("tableView").style.display = view === "table" ? "block" : "none";
   document.getElementById("sectorsView").style.display = view === "sectors" ? "block" : "none";
   for (const [key, btn] of Object.entries(VIEW_BUTTONS)) {
     btn.setAttribute("aria-pressed", String(key === view));
   }
-  if (inMap) ensure3d(view === "3d");
+  if (view === "map") map.invalidateSize();
   if (view === "sectors") renderMinis();
-  // La carte de réponse décrit un état de la carte : hors des vues
-  // cartographiques, elle deviendrait un texte orphelin.
-  if (!inMap) hideAnswer();
+  // La carte de réponse décrit un état de la carte : hors de la vue
+  // cartographique, elle deviendrait un texte orphelin.
+  if (view !== "map") hideAnswer();
   writeHash();
 }
-/* Revenir sur la carte sans perdre le mode 3D en cours. */
 function showMapView() {
-  if (currentView === "table" || currentView === "sectors") setView(mode3d ? "3d" : "map");
+  if (currentView !== "map") setView("map");
 }
 btnMap.addEventListener("click", () => setView("map"));
-btn3d.addEventListener("click", () => setView(currentView === "3d" ? "map" : "3d"));
-viewBtn.addEventListener("click", () => setView(currentView === "table" ? (mode3d ? "3d" : "map") : "table"));
-sectorsBtn.addEventListener("click", () => setView(currentView === "sectors" ? (mode3d ? "3d" : "map") : "sectors"));
+viewBtn.addEventListener("click", () => setView(currentView === "table" ? "map" : "table"));
+sectorsBtn.addEventListener("click", () => setView(currentView === "sectors" ? "map" : "sectors"));
 
 /* ---------- Infobulle ---------- */
 const tooltip = document.getElementById("tooltip");

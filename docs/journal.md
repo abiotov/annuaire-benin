@@ -1,5 +1,9 @@
 # Journal du projet
 
+## 2026-07-18 (suite) : retrait de la vue 3D
+
+Décision produit d'Etienne : la 3D sort de la page. Retirés : le bouton et le conteneur, tout le code MapLibre de `atlas.js`, la bibliothèque vendorisée (environ 850 Ko de dépôt en moins), les mentions dans les docs ; l'image Open Graph est régénérée depuis la vue 2D, et les anciens liens `v=3d`/`m=3d` retombent proprement sur la carte. Le harnais passe à 21 vérifications. La 3D reste dans l'historique git si un jour elle doit revenir.
+
 ## 2026-07-18 (suite) : harnais de test complet et refonte du design
 
 Sur exigence d'Etienne (« teste tout », « hyper dynamique et très impressionnant ») :

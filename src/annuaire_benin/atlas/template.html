@@ -7,7 +7,7 @@
 <meta name="description" content="235 000 entreprises béninoises nettoyées, dédupliquées et classées : carte interactive par commune et par secteur, volume, densité par habitant et indice de spécialisation.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Atlas économique du Bénin">
-<meta property="og:description" content="235 000 entreprises sur carte interactive : volume, densité pour 1 000 habitants et spécialisation sectorielle des 77 communes, en 2D et 3D, interrogeable en français.">
+<meta property="og:description" content="235 000 entreprises sur carte interactive : volume, densité pour 1 000 habitants et spécialisation sectorielle des 77 communes, interrogeable en français.">
 <meta property="og:url" content="https://abiotov.github.io/annuaire-benin/atlas/">
 <meta property="og:image" content="https://abiotov.github.io/annuaire-benin/atlas/og.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -186,23 +186,16 @@
              gap: 10px; margin: 0 4px 10px; }
   .maphead .t { font-weight: 650; }
   .maphead .m { color: var(--muted); font-size: 0.78rem; text-align: right; }
-  #map, #map3d { height: min(68vh, 660px); min-height: 480px; border-radius: 12px;
+  #map { height: min(68vh, 660px); min-height: 480px; border-radius: 12px;
                  background: var(--surface-2); }
-  #map3d { display: none; }
-  #map3d canvas { border-radius: 12px; }
   .leaflet-container { font: inherit; }
-  .maplibregl-ctrl-attrib { font-size: 0.7rem; }
   :root[data-theme="dark"] .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.9) saturate(0.7); }
   :root[data-theme="dark"] .leaflet-control-zoom a,
-  :root[data-theme="dark"] .leaflet-control-attribution,
-  :root[data-theme="dark"] .maplibregl-ctrl-group,
-  :root[data-theme="dark"] .maplibregl-ctrl-attrib { background: var(--surface); color: var(--ink-2); }
+  :root[data-theme="dark"] .leaflet-control-attribution { background: var(--surface); color: var(--ink-2); }
   @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.9) saturate(0.7); }
     :root:where(:not([data-theme="light"])) .leaflet-control-zoom a,
-    :root:where(:not([data-theme="light"])) .leaflet-control-attribution,
-    :root:where(:not([data-theme="light"])) .maplibregl-ctrl-group,
-    :root:where(:not([data-theme="light"])) .maplibregl-ctrl-attrib { background: var(--surface); color: var(--ink-2); }
+    :root:where(:not([data-theme="light"])) .leaflet-control-attribution { background: var(--surface); color: var(--ink-2); }
   }
 
   #panel {
@@ -219,7 +212,7 @@
   @media (max-width: 900px) {
     #panel { position: static; width: auto; margin-top: 14px;
              backdrop-filter: none; background: var(--surface); box-shadow: var(--shadow); }
-    #map, #map3d { height: 62vh; min-height: 420px; }
+    #map { height: 62vh; min-height: 420px; }
   }
   #panel h2 { margin: 0; font-size: 1.1rem; letter-spacing: -0.01em;
               display: flex; align-items: center; gap: 8px; }
@@ -377,8 +370,7 @@
   <div class="toolbar rise d4">
     <span class="seg" role="group" aria-label="Vue">
       <button id="btnMap" aria-pressed="true"><svg class="ic"><use href="#i-map"/></svg> Carte</button>
-      <button id="btn3d" aria-pressed="false"><svg class="ic"><use href="#i-cube"/></svg> 3D</button>
-      <button id="viewBtn" aria-pressed="false"><svg class="ic"><use href="#i-list"/></svg> <span>Tableau</span></button>
+        <button id="viewBtn" aria-pressed="false"><svg class="ic"><use href="#i-list"/></svg> <span>Tableau</span></button>
       <button id="sectorsBtn" aria-pressed="false"><svg class="ic"><use href="#i-grid"/></svg> <span>Panorama</span></button>
     </span>
     <select id="sectorSel" aria-label="Filtrer par secteur"><option value="">Tous les secteurs</option></select>
@@ -405,7 +397,6 @@
           <span class="m">survoler pour les chiffres, cliquer pour le détail, zoomer librement</span>
         </div>
         <div id="map" role="application" aria-label="Carte des communes du Bénin sur fond OpenStreetMap"></div>
-        <div id="map3d" role="application" aria-label="Carte 3D : communes en relief"></div>
         <div class="legend" id="legend"><span class="hint">chargement de la couche cartographique...</span></div>
         <aside id="panel"></aside>
       </figure>
