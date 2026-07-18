@@ -42,8 +42,8 @@ def test_atlas_loads_and_renders(atlas_url):
         # La couche des 77 communes est dessinée (le masque en plus).
         page.wait_for_selector(".leaflet-interactive", timeout=15_000)
         assert page.locator(".leaflet-interactive").count() >= 77
-        # Tuiles de synthèse remplies par le JS.
-        expect(page.locator(".tile .v").first).not_to_have_text("0")
+        # Compteurs du héros remplis par le JS.
+        expect(page.locator("#tiles .v").first).not_to_have_text("0")
         # La vue tableau liste les 77 communes.
         page.click("#viewBtn")
         assert page.locator("#tableBody tr").count() == 77
