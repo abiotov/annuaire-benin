@@ -153,8 +153,151 @@ communes.forEach(name => {
 const searchBox = document.getElementById("communeSearch");
 searchBox.addEventListener("change", () => {
   const name = searchBox.value.trim().toUpperCase();
-  if (P.communes[name]) { selectCommune(name); searchBox.value = ""; setView("map"); }
+  if (P.communes[name]) { runQuery(name); searchBox.value = ""; }
 });
+searchBox.addEventListener("keydown", event => {
+  if (event.key === "Enter" && searchBox.value.trim()) {
+    runQuery(searchBox.value);
+  }
+});
+document.querySelectorAll("#examples button").forEach(btn =>
+  btn.addEventListener("click", () => { searchBox.value = btn.textContent; runQuery(btn.textContent); }));
+
+/* ---------- Recherche en langage naturel (interpréteur embarqué) ----------
+   Pas de LLM : la page est statique et publique, une clé API y serait
+   exposée. Un lexique mot-clé -> secteur dérivé de la table de
+   classification, la liste des 77 communes et une petite grammaire
+   d'intentions suffisent, et la réponse pilote directement la carte. */
+const foldQ = text => text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+const communesByFold = {};
+communes.forEach(name => {
+  const folded = foldQ(name);
+  communesByFold[folded] = name;
+  communesByFold[folded.replace(/[-' ]/g, "")] = name;
+});
+const sectorLabelByFold = Object.fromEntries(
+  Object.entries(P.sectors).map(([id, s]) => [foldQ(s.label), id]));
+
+function findCommune(query) {
+  const compact = query.replace(/[-' ]/g, "");
+  let best = null;
+  for (const [folded, name] of Object.entries(communesByFold)) {
+    if ((query.includes(folded) || compact.includes(folded))
+        && (!best || folded.length > best[0].length)) best = [folded, name];
+  }
+  return best && best[1];
+}
+function findSector(query) {
+  for (const [folded, id] of Object.entries(sectorLabelByFold)) {
+    if (query.includes(folded)) return id;
+  }
+  const words = query.match(/[a-z]{3,}/g) || [];
+  let best = null;
+  for (const word of words) {
+    for (const candidate of [word, word.replace(/s$/, "")]) {
+      if (P.lexicon[candidate]) {
+        if (!best || candidate.length > best[0].length) best = [candidate, P.lexicon[candidate]];
+      }
+    }
+    if (!best && word.length >= 5) {
+      for (const [key, id] of Object.entries(P.lexicon)) {
+        if ((key.startsWith(word) || word.startsWith(key))
+            && (!best || key.length > best[0].length)) best = [key, id];
+      }
+    }
+  }
+  return best && best[1];
+}
+const sectorRank = (sector, name) => {
+  const sorted = communes.slice()
+    .sort((a, b) => (P.communes[b].sectors[sector] || 0) - (P.communes[a].sectors[sector] || 0));
+  return sorted.indexOf(name) + 1;
+};
+function specTop(sector, count) {
+  return communes
+    .map(name => {
+      const c = P.communes[name];
+      const lq = c.total >= 200 ? ((c.sectors[sector] || 0) / c.total) / nationalShare[sector] : 0;
+      return [name, lq];
+    })
+    .sort((a, b) => b[1] - a[1]).slice(0, count);
+}
+const lqFmt = v => v.toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + "×";
+
+function runQuery(raw) {
+  const query = foldQ(raw);
+  const commune = findCommune(query);
+  const sector = findSector(query);
+  const wantsHab = /densit|1 ?000|habitant/.test(query);
+  const wantsSpec = /specialis|represent|concentr/.test(query);
+  const wantsTop = /le plus|plus de|quelle commune|classement|top /.test(query) || /^ou\b|\bou\b/.test(query);
+  const wantsProfile = /que fait|secteurs|profil|principales? activit/.test(query);
+
+  if (!sector && (wantsSpec || wantsTop) && !commune) {
+    showAnswer(`J'ai compris la question mais pas le secteur.
+      <span class="muted">Nommez-le : « où le BTP est-il sur-représenté ? »,
+      « quelle commune a le plus de pressings ? »</span>`);
+    return;
+  }
+  if (!commune && !sector && !wantsHab && !wantsProfile) {
+    showAnswer(`Je n'ai pas compris « ${raw.trim()} ». <span class="muted">Essayez :
+      « combien de quincailleries à Porto-Novo ? », « où l'immobilier est-il
+      sur-représenté ? », « que fait-on à Natitingou ? »</span>`);
+    return;
+  }
+
+  setView("map");
+  if (sector) { currentSector = sector; sectorSel.value = sector; }
+  metric = wantsSpec && sector ? "spec" : (wantsHab ? "hab" : "vol");
+  metricButtons.forEach(b => b.setAttribute("aria-pressed", String(b.dataset.metric === metric)));
+  if (commune && selected !== commune) selectCommune(commune);
+  render();
+  writeHash();
+
+  const label = sector ? P.sectors[sector].label : null;
+  let text;
+  if (wantsSpec && sector) {
+    const top = specTop(sector, 3);
+    text = `<b>${label}</b> est le plus sur-représenté à ` +
+      top.map(([n, v]) => `${n} (<b>${lqFmt(v)}</b> la moyenne nationale)`).join(", ") +
+      `. <span class="muted">Communes d'au moins 200 entreprises ; la carte est passée
+      en vue spécialisation.</span>`;
+  } else if (sector && commune) {
+    const count = P.communes[commune].sectors[sector] || 0;
+    text = `<b>${commune}</b> compte <b>${fmt(count)}</b> entreprises « ${label} », ` +
+      `${sectorRank(sector, commune)}ᵉ commune du pays sur ce secteur.`;
+  } else if (sector && wantsTop) {
+    const top = communes.slice()
+      .sort((a, b) => (P.communes[b].sectors[sector] || 0) - (P.communes[a].sectors[sector] || 0))
+      .slice(0, 3);
+    text = `Le plus de « ${label} » : ` +
+      top.map((n, i) => `${i + 1}. ${n} (<b>${fmt(P.communes[n].sectors[sector] || 0)}</b>)`).join(", ") + ".";
+  } else if (sector) {
+    text = `<b>${fmt(P.sectors[sector].total)}</b> entreprises « ${label} » au Bénin.
+      <span class="muted">La carte montre leur répartition ; ajoutez une commune à
+      votre question pour un chiffre local.</span>`;
+  } else if (commune && wantsHab) {
+    const c = P.communes[commune];
+    text = `<b>${commune}</b> : <b>${perThousand(c)}</b> entreprises pour 1 000 habitants
+      (${fmt(c.total)} entreprises, ${fmt(c.pop)} habitants en 2013).`;
+  } else if (commune) {
+    const c = P.communes[commune];
+    const top = Object.entries(c.sectors).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    text = `<b>${commune}</b> : <b>${fmt(c.total)}</b> entreprises,
+      ${ranks[commune]}ᵉ commune sur ${communes.length}. Principaux secteurs : ` +
+      top.map(([id, n]) => `${P.sectors[id].label} (<b>${fmt(n)}</b>)`).join(", ") + ".";
+  } else {
+    text = `La carte est passée en vue « pour 1 000 habitants ».`;
+  }
+  showAnswer(text);
+}
+const answerCard = document.getElementById("answer");
+function showAnswer(html) {
+  document.getElementById("answerTxt").innerHTML = html;
+  answerCard.style.display = "block";
+}
+function hideAnswer() { answerCard.style.display = "none"; }
+document.getElementById("answerClose").addEventListener("click", hideAnswer);
 document.getElementById("randomBtn").addEventListener("click", () => {
   const pool = communes.filter(n => n !== selected);
   selectCommune(pool[Math.floor(Math.random() * pool.length)]);

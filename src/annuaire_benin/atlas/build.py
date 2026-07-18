@@ -21,6 +21,7 @@ from pathlib import Path
 
 from annuaire_benin.atlas.aggregate import aggregate
 from annuaire_benin.atlas.geo import bounds_of, country_mask, export_geojson, match_features
+from annuaire_benin.atlas.lexicon import build_lexicon
 
 
 def build(connection: sqlite3.Connection, out_path: Path) -> dict:
@@ -45,6 +46,7 @@ def build(connection: sqlite3.Connection, out_path: Path) -> dict:
         [round(country[0][0], 3), round(country[0][1], 3)],
         [round(country[1][0], 3), round(country[1][1], 3)],
     ]
+    data["lexicon"] = build_lexicon()
 
     template = (
         resources.files("annuaire_benin.atlas")

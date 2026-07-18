@@ -1,5 +1,13 @@
 # Journal du projet
 
+## 2026-07-18 (suite) : étape 5, la recherche en langage naturel
+
+- Décision d'architecture : pas de LLM (page statique publique = clé API exposée). Interpréteur français embarqué : lexique de 414 mots-clés → secteur dérivé de la table de classification (`atlas/lexicon.py`, règle de dominance à 80 % qui écarte « vente », « produits », « gsm » ambigu), reconnaissance des 77 communes, grammaire d'intentions (combien, où le plus, profil, densité, spécialisation).
+- La réponse s'affiche dans une carte dédiée ET pilote l'atlas : « où le BTP est-il sur-représenté ? » répond « Lokossa (1,7×), Natitingou (1,7×), Parakou (1,5×) », passe la carte en spécialisation et sélectionne le secteur. Exemples cliquables sous la barre, messages de repli qui guident.
+- Bugs attrapés par la vérification visuelle : seuil de mots-clés à 4 lettres qui excluait « BTP » (abaissé à 3, la dominance contient le bruit), intention spécialisation sans secteur qui tombait dans le repli générique (message dédié). Deux artefacts de harnais aussi diagnostiqués (encodage d'une copie de test, apostrophe PowerShell).
+- Test e2e ajouté : la question tapée doit afficher une réponse et changer le filtre de secteur. 77 tests unitaires verts.
+- La feuille de route des 5 étapes est complète.
+
 ## 2026-07-18 : revue des paires arbitrées et atlas cohérent avec la déduplication
 
 - Revue une à une des 63 paires « même » confirmées par l'arbitrage (déléguée à l'assistant par Etienne) : **52 validées** (typos, réordonnancements, suffixes sur nom distinctif, souvent avec contact partagé), **7 rejetées** (deux boutiques d'un même propriétaire comme IBM ESTHETIK / IBM FASHION, membres d'une famille comme SAIBOU / MOUSSA SEYBOU), **4 laissées indécises**. Décisions tracées dans `data/revue_zone_grise_validee.csv` (privé) et dans la table `arbitrations`.

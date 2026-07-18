@@ -57,6 +57,23 @@ def test_atlas_loads_and_renders(atlas_url):
         browser.close()
 
 
+def test_natural_language_search_answers_and_drives_the_map(atlas_url):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch()
+        page = browser.new_page(viewport={"width": 1240, "height": 900})
+        page.goto(atlas_url)
+        page.wait_for_selector(".leaflet-interactive", timeout=15_000)
+        page.fill("#communeSearch", "combien de pressings à Cotonou ?")
+        page.press("#communeSearch", "Enter")
+        expect(page.locator("#answer")).to_be_visible()
+        expect(page.locator("#answerTxt")).to_contain_text("COTONOU")
+        # La réponse pilote la carte : secteur sélectionné dans le filtre.
+        assert page.input_value("#sectorSel") == "services-divers"
+        browser.close()
+
+
 def test_atlas_mobile_has_no_horizontal_overflow(atlas_url):
     from playwright.sync_api import sync_playwright
 

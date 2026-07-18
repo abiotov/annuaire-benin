@@ -92,7 +92,22 @@
     padding: 9px 12px; font: inherit; font-size: 0.9rem;
     max-width: 100%;
   }
-  #communeSearch { min-width: min(240px, 72vw); padding-left: 34px; }
+  #communeSearch { min-width: min(330px, 72vw); padding-left: 34px; }
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; align-items: center; }
+  .examples .lbl { color: var(--muted); font-size: 0.78rem; }
+  .examples button {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+    padding: 4px 12px; font: inherit; font-size: 0.78rem; color: var(--ink-2); cursor: pointer;
+  }
+  .examples button:hover { border-color: var(--accent); color: var(--accent); }
+  #answer { display: none; margin-bottom: 14px; border-left: 4px solid var(--accent);
+            padding: 12px 16px; }
+  #answer .inner { display: flex; gap: 12px; align-items: baseline; }
+  #answer .txt { flex: 1; font-size: 0.95rem; }
+  #answer .txt b { font-variant-numeric: tabular-nums; }
+  #answer .txt .muted { color: var(--muted); font-size: 0.8rem; }
+  #answer button { background: none; border: none; color: var(--muted); cursor: pointer; font: inherit; }
+  #answer button:hover { color: var(--accent); }
   #sectorSel { max-width: min(320px, 100%); }
   @media (max-width: 480px) {
     .searchwrap, #communeSearch, #sectorSel { width: 100%; }
@@ -248,7 +263,8 @@
   <div class="controls">
     <span class="searchwrap">
       <svg class="ic"><use href="#i-search"/></svg>
-      <input id="communeSearch" list="communesList" placeholder="Chercher une commune..." autocomplete="off">
+      <input id="communeSearch" list="communesList"
+             placeholder="Poser une question ou chercher une commune..." autocomplete="off">
     </span>
     <datalist id="communesList"></datalist>
     <select id="sectorSel" aria-label="Filtrer par secteur"><option value="">Tous les secteurs</option></select>
@@ -262,6 +278,18 @@
     <button id="viewBtn" aria-pressed="false"><svg class="ic"><use href="#i-list"/></svg> <span>Vue tableau</span></button>
     <button id="sectorsBtn" aria-pressed="false" title="25 mini-cartes, une par secteur"><svg class="ic"><use href="#i-grid"/></svg> <span>Panorama</span></button>
     <button id="csvBtn" title="Télécharger les agrégats commune × secteur"><svg class="ic"><use href="#i-download"/></svg> CSV</button>
+  </div>
+
+  <div class="examples" id="examples">
+    <span class="lbl">essayez :</span>
+    <button>combien de pressings à Cotonou ?</button>
+    <button>où le BTP est-il sur-représenté ?</button>
+    <button>que fait-on à Parakou ?</button>
+  </div>
+
+  <div id="answer" class="card" role="status">
+    <div class="inner"><span class="txt" id="answerTxt"></span>
+    <button id="answerClose" aria-label="Fermer la réponse">✕</button></div>
   </div>
 
   <div id="mapView" class="layout">
