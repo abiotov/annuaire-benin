@@ -1,0 +1,5 @@
+name = "annuaire-nlq"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+
+# La clé Gemini n'est jamais dans le code : `wrangler secret put GEMINI_API_KEY`.

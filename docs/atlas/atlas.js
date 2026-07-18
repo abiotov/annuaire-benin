@@ -178,14 +178,15 @@ communes.forEach(name => {
 const sectorLabelByFold = Object.fromEntries(
   Object.entries(P.sectors).map(([id, s]) => [foldQ(s.label), id]));
 
-function findCommune(query) {
+function findCommunes(query) {
   const compact = query.replace(/[-' ]/g, "");
-  let best = null;
+  const found = new Map();  // nom -> longueur du match
   for (const [folded, name] of Object.entries(communesByFold)) {
-    if ((query.includes(folded) || compact.includes(folded))
-        && (!best || folded.length > best[0].length)) best = [folded, name];
+    if (query.includes(folded) || compact.includes(folded)) {
+      found.set(name, Math.max(found.get(name) || 0, folded.length));
+    }
   }
-  return best && best[1];
+  return [...found.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
 }
 function findSector(query) {
   for (const [folded, id] of Object.entries(sectorLabelByFold)) {
@@ -226,23 +227,24 @@ const lqFmt = v => v.toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + "×
 
 function runQuery(raw) {
   const query = foldQ(raw);
-  const commune = findCommune(query);
+  const allCommunes = findCommunes(query);
+  // Deux communes dans la question : comparaison ou formulation riche,
+  // au-delà de la grammaire locale ; l'interprète LLM prend le relais.
+  if (allCommunes.length >= 2 && !interpreting) {
+    askInterpreter(raw);
+    return;
+  }
+  const commune = allCommunes[0] || null;
   const sector = findSector(query);
   const wantsHab = /densit|1 ?000|habitant/.test(query);
   const wantsSpec = /specialis|represent|concentr/.test(query);
   const wantsTop = /le plus|plus de|quelle commune|classement|top /.test(query) || /^ou\b|\bou\b/.test(query);
   const wantsProfile = /que fait|secteurs|profil|principales? activit/.test(query);
 
-  if (!sector && (wantsSpec || wantsTop) && !commune) {
-    showAnswer(`J'ai compris la question mais pas le secteur.
-      <span class="muted">Nommez-le : « où le BTP est-il sur-représenté ? »,
-      « quelle commune a le plus de pressings ? »</span>`);
-    return;
-  }
-  if (!commune && !sector && !wantsHab && !wantsProfile) {
-    showAnswer(`Je n'ai pas compris « ${raw.trim()} ». <span class="muted">Essayez :
-      « combien de quincailleries à Porto-Novo ? », « où l'immobilier est-il
-      sur-représenté ? », « que fait-on à Natitingou ? »</span>`);
+  if ((!sector && (wantsSpec || wantsTop) && !commune)
+      || (!commune && !sector && !wantsHab && !wantsProfile)) {
+    if (interpreting) fallbackMessage(raw);
+    else askInterpreter(raw);
     return;
   }
 
@@ -291,6 +293,78 @@ function runQuery(raw) {
   }
   showAnswer(text);
 }
+/* Repli LLM : quand la grammaire locale ne comprend pas, un Worker
+   Cloudflare (clé côté serveur, jamais dans cette page) traduit la
+   question en intention structurée ; les chiffres restent calculés ici,
+   depuis les agrégats. Hors ligne ou Worker muet : message pédagogique. */
+const NLQ_ENDPOINT = "https://annuaire-nlq.abiotov.workers.dev";
+const AI_NOTE = '<span class="muted">question interprétée par IA (Gemini), chiffres calculés depuis les données</span>';
+let interpreting = false;
+
+function fallbackMessage(raw) {
+  showAnswer(`Je n'ai pas compris « ${raw.trim()} ». <span class="muted">Essayez :
+    « combien de quincailleries à Porto-Novo ? », « où l'immobilier est-il
+    sur-représenté ? », « que fait-on à Natitingou ? »</span>`);
+}
+
+async function askInterpreter(raw) {
+  if (!NLQ_ENDPOINT.startsWith("http")) { fallbackMessage(raw); return; }
+  showAnswer('<span class="muted">analyse de la question...</span>');
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    const response = await fetch(NLQ_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ q: raw }),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!response.ok) throw new Error("worker " + response.status);
+    executeStructured(await response.json(), raw);
+  } catch {
+    fallbackMessage(raw);
+  }
+}
+
+function executeStructured(intent, raw) {
+  const sector = P.sectors[intent.sector] ? intent.sector : null;
+  const names = (intent.communes || []).filter(n => P.communes[n]);
+  const label = sector ? P.sectors[sector].label : null;
+
+  if (intent.action === "compare" && names.length === 2) {
+    if (sector) { currentSector = sector; sectorSel.value = sector; }
+    setView("map");
+    pinned = names[0];
+    if (selected !== names[1]) selectCommune(names[1]); else renderPanel();
+    render();
+    writeHash();
+    const [a, b] = names.map(n => P.communes[n]);
+    showAnswer(`<b>${names[0]}</b> (${fmt(a.total)} entreprises) face à
+      <b>${names[1]}</b> (${fmt(b.total)}) : détail dans le panneau. ${AI_NOTE}`);
+    return;
+  }
+
+  if (!sector && !names.length) { fallbackMessage(raw); return; }
+  const rebuilt = [
+    intent.action === "count" ? "combien de" : "",
+    intent.action === "top" ? "quelle commune a le plus de" : "",
+    intent.action === "density" ? "densité" : "",
+    intent.action === "spec" ? "spécialisation" : "",
+    intent.action === "profile" ? "que fait-on" : "",
+    label || "",
+    names[0] ? "à " + names[0] : "",
+  ].filter(Boolean).join(" ");
+  interpreting = true;
+  try {
+    runQuery(rebuilt);
+  } finally {
+    interpreting = false;
+  }
+  const current = document.getElementById("answerTxt").innerHTML;
+  showAnswer(current + " " + AI_NOTE);
+}
+
 const answerCard = document.getElementById("answer");
 function showAnswer(html) {
   document.getElementById("answerTxt").innerHTML = html;

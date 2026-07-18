@@ -14,3 +14,6 @@ venv/
 dist/
 build/
 .pytest_cache/
+
+# Cache wrangler (contient l'identité du compte Cloudflare)
+worker/.wrangler/

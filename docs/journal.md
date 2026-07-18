@@ -1,5 +1,14 @@
 # Journal du projet
 
+## 2026-07-18 (suite) : la couche LLM de la recherche, déployée proprement
+
+Etienne a validé l'option « proxy serveur » : la recherche gagne une seconde couche pour la langue libre, sans jamais exposer de clé.
+
+- `worker/` : Worker Cloudflare (déployé sur <https://annuaire-nlq.abiotov.workers.dev>, code versionné, clé en secret via `wrangler secret put`). Garde-fous : CORS restreint à l'atlas et au serveur local de dev, 8 requêtes/minute/IP, question tronquée à 300 caractères, sortie plafonnée, JSON validé (action et secteur contre listes fermées). Le LLM (gemini-2.5-flash-lite, température 0, sortie JSON native) traduit la question en intention structurée ; les chiffres restent calculés par la page : une hallucination de nombre est architecturalement impossible.
+- `atlas.js` : bascule automatique vers le Worker quand la grammaire locale ne comprend pas ou quand la question contient deux communes (leçon du test : « est-ce que Parakou a plus de restaurants que Bohicon ? » était à moitié comprise localement et répondait un comptage ; désormais deux communes = interprète). Nouvelle action `compare` branchée sur le comparateur existant. Toute réponse passée par l'IA est étiquetée « question interprétée par IA (Gemini), chiffres calculés depuis les données ». Hors ligne ou Worker muet : repli pédagogique, et un drapeau anti-récursion protège la boucle.
+- Incidents de déploiement documentés : sous-domaine workers.dev d'un compte neuf enregistré via l'API (wrangler ne sait pas le faire en non-interactif), retour chariot injecté par le pipe PowerShell dans le secret (400 Gemini, corrigé par un trim côté Worker), outillage Cloudflare officiel installé pour les sessions futures.
+- Vérifié de bout en bout sur capture : intention `compare` correcte, panneau de comparaison à barres doubles, étiquette IA visible. 77 tests unitaires verts.
+
 ## 2026-07-18 (suite) : étape 5, la recherche en langage naturel
 
 - Décision d'architecture : pas de LLM (page statique publique = clé API exposée). Interpréteur français embarqué : lexique de 414 mots-clés → secteur dérivé de la table de classification (`atlas/lexicon.py`, règle de dominance à 80 % qui écarte « vente », « produits », « gsm » ambigu), reconnaissance des 77 communes, grammaire d'intentions (combien, où le plus, profil, densité, spécialisation).
@@ -73,7 +82,7 @@ Retours d'Etienne sur la v2 : la météo ne sert à rien, pas d'emojis, et OpenS
 - `atlas/geo.py` : contours des 77 communes (geoBoundaries gbOpen BEN ADM2, domaine public, 173 Ko simplifiés, embarqués dans le paquet), 7 écarts d'orthographe résolus par alias explicites (SEME-PODJI/Seme-Kpodji, COBLY/Kobli...), projection équirectangulaire vers des chemins SVG côté Python, échec bruyant si une commune n'a pas de contour.
 - `atlas/build.py` + `template.html` : page unique autonome (126 Ko, zéro requête externe), carte choroplèthe interactive, filtre par secteur, panneau de détail par commune, vue tableau, infobulles, thèmes clair et sombre (rampe séquentielle bleue inversée en sombre), navigation clavier sur la carte.
 - Rendu vérifié par captures headless (Edge) dans les deux thèmes avant publication.
-- Publication : GitHub Pages sert `docs/` ; l'atlas est en ligne sur https://abiotov.github.io/annuaire-benin/atlas/
+- Publication : GitHub Pages sert `docs/` ; l'atlas est en ligne sur <https://abiotov.github.io/annuaire-benin/atlas/>
 - 67 tests verts. Incident d'environnement noté : le PATH du shell s'est mis à pointer vers le venv d'un autre projet ; l'interpréteur global est désormais appelé explicitement.
 
 ## 2026-07-17 : étape 3, classification par secteur
@@ -106,7 +115,7 @@ Retours d'Etienne sur la v2 : la météo ne sert à rien, pas d'emojis, et OpenS
 
 ## 2026-07-16 (suite) : publication et vitrine
 
-- Dépôt publié sur GitHub (public) : https://github.com/abiotov/annuaire-benin, avec description et topics.
+- Dépôt publié sur GitHub (public) : <https://github.com/abiotov/annuaire-benin>, avec description et topics.
 - CI GitHub Actions : ruff (lint) + pytest sur chaque push.
 - Linter ruff ajouté au projet (config dans pyproject.toml), base de code conforme.
 - README refondu en vitrine : chiffres clés, analyse de l'anomalie des numéros tronqués, diagramme d'architecture, roadmap, décisions de conception.
