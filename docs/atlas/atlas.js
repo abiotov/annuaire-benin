@@ -534,9 +534,12 @@ fetch("communes.geojson")
 
 /* ---------- Rendu global ---------- */
 function render() {
-  document.getElementById("mapTitle").textContent =
+  const contextTitle =
     (currentSector ? P.sectors[currentSector].label : "Toutes les entreprises")
     + (metric === "hab" ? " · pour 1 000 habitants" : metric === "spec" ? " · spécialisation" : "");
+  document.getElementById("mapTitle").textContent = contextTitle;
+  document.getElementById("tableTitle").textContent =
+    contextTitle + (selected ? " · " + selected + " en surbrillance" : "");
   document.getElementById("valHead").textContent = METRIC_LABEL[metric];
   renderPanel();
   renderTable();
@@ -747,7 +750,7 @@ async function ensure3d(on) {
   try {
     await loadMapLibre();
     if (!map3d) init3d();
-    else { map3d.resize(); update3d(); }
+    else { map3d.resize(); update3d(); fly3dToSelection(); }
   } catch {
     document.getElementById("legend").innerHTML =
       '<span class="hint">vue 3D indisponible (hors ligne ?)</span>';
@@ -786,7 +789,14 @@ function init3d() {
     map3d.on("click", "prismes", e => selectCommune(e.features[0].properties.name));
     ready3d = true;
     update3d();
+    fly3dToSelection();
   });
+}
+function fly3dToSelection() {
+  if (!selected || !map3d) return;
+  const b = P.communes[selected].bounds;
+  map3d.fitBounds([[b[0][1], b[0][0]], [b[1][1], b[1][0]]],
+    { padding: 60, pitch: 55, duration: reduceMotion ? 0 : 1200 });
 }
 function update3d() {
   if (!ready3d || !geoData) return;
@@ -883,8 +893,13 @@ function renderMinis() {
       });
     });
   }
-  minis.querySelectorAll(".mini").forEach(card =>
-    drawMini(card.querySelector("canvas"), card.dataset.sector));
+  minis.querySelectorAll(".mini").forEach(card => {
+    card.classList.toggle("active", card.dataset.sector === currentSector);
+    drawMini(card.querySelector("canvas"), card.dataset.sector);
+  });
+  const active = minis.querySelector(".mini.active");
+  if (active) active.scrollIntoView({ block: "nearest",
+    behavior: reduceMotion ? "auto" : "smooth" });
 }
 
 /* ---------- Tableau ---------- */
@@ -905,7 +920,7 @@ function renderTable() {
     return (typeof x === "string" ? x.localeCompare(y) : x - y) * sortState.dir;
   });
   document.getElementById("tableBody").innerHTML = rows.map(r =>
-    `<tr data-name="${r.name}"><td>${r.name}</td><td class="num">${fmtV(r.v < 0 ? null : r.v)}</td>
+    `<tr data-name="${r.name}"${r.name === selected ? ' class="sel"' : ""}><td>${r.name}</td><td class="num">${fmtV(r.v < 0 ? null : r.v)}</td>
      <td>${r.topLabel}</td><td class="num">${r.share} %</td></tr>`).join("");
   document.querySelectorAll("thead th").forEach(th => {
     th.querySelector(".arrow").textContent =

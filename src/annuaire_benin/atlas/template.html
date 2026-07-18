@@ -296,6 +296,9 @@
           transition: transform 160ms var(--ease), border-color 160ms, box-shadow 160ms; }
   .mini:hover { transform: translateY(-3px) scale(1.015); border-color: var(--accent);
                 box-shadow: var(--shadow); }
+  .mini.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow); }
+  .mini.active .n { color: var(--accent); font-weight: 650; }
+  tbody tr.sel td { background: var(--accent-soft); font-weight: 600; }
   .mini canvas { width: 100%; height: auto; }
   .mini .n { font-size: 0.78rem; color: var(--ink-2); margin-top: 4px; line-height: 1.25; }
   .mini .c { font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -409,6 +412,10 @@
     </div>
 
     <div id="tableView" class="card view">
+      <div class="maphead">
+        <span class="t" id="tableTitle">Toutes les entreprises</span>
+        <span class="m">cliquer une ligne pour la voir sur la carte</span>
+      </div>
       <table>
         <thead><tr>
           <th data-k="name">Commune <span class="arrow"></span></th>
