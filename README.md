@@ -9,7 +9,7 @@
 [![Licence : MIT](https://img.shields.io/badge/licence-MIT-green.svg)](LICENSE)
 [![Code style : ruff](https://img.shields.io/badge/code%20style-ruff-261230.svg)](https://github.com/astral-sh/ruff)
 
-*Documentation en français : le projet porte sur des données béninoises.*
+*Documentation en français : le projet porte sur des données béninoises. [English summary](README.en.md).*
 
 **[→ Voir l'atlas économique interactif](https://abiotov.github.io/annuaire-benin/atlas/)**
 
@@ -130,7 +130,7 @@ La source contient des données personnelles (téléphones, emails de vraies ent
 
 - **Pourquoi SQLite comme pivot :** un fichier unique, zéro serveur, requêtable par tout outil ; largement suffisant pour un demi-million de lignes.
 - **Pourquoi des statuts plutôt qu'un booléen valide/invalide :** 22 % de la source est irrécupérable pour une raison précise ; la dire vaut mieux que la masquer.
-- **Pourquoi `contacts/` est isolé :** aucune dépendance vers le reste du projet, API stable, tests exhaustifs ; le sous-paquet sera extrait et publié sur PyPI.
+- **Pourquoi `contacts/` est isolé :** aucune dépendance vers le reste du projet, API stable, tests exhaustifs. Le sous-paquet est extrait en bibliothèque autonome : [benin-contacts](https://github.com/abiotov/benin-contacts) (destinée à PyPI).
 - **Pourquoi un jeu de vérité manuel avant la dédup :** un rapprochement sans précision ni rappel mesurés est une opinion, pas un résultat.
 - **Pourquoi la carte n'affiche pas chaque entreprise individuellement :** le registre ne fournit aucune coordonnée GPS (seulement commune et quartier), et pointer des entreprises une à une publierait des données personnelles. L'atlas montre donc des densités par commune, sur une vraie carte navigable (fond OpenStreetMap, Leaflet vendorisé dans le repo : aucun CDN, tuiles chargées avec attribution, la page reste utilisable hors tuiles).
 - **Fonctionnalités essayées puis retirées :** une météo Open-Meteo par commune (jolie mais sans valeur informative pour un atlas économique) ; OpenWeatherMap avait été écarté d'office, sa clé API serait exposée dans une page statique.
