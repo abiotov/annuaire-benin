@@ -340,8 +340,22 @@ function executeStructured(intent, raw) {
     render();
     writeHash();
     const [a, b] = names.map(n => P.communes[n]);
-    showAnswer(`<b>${names[0]}</b> (${fmt(a.total)} entreprises) face à
-      <b>${names[1]}</b> (${fmt(b.total)}) : détail dans le panneau. ${AI_NOTE}`);
+    // La question portait peut-être sur un secteur précis : la réponse
+    // compare ce secteur, les totaux ne viennent qu'en contexte.
+    let text;
+    if (sector) {
+      const na = a.sectors[sector] || 0;
+      const nb = b.sectors[sector] || 0;
+      const lead = na === nb ? "Égalité" : (na > nb ? names[0] : names[1]) + " devant";
+      text = `${lead} : <b>${names[0]}</b> compte <b>${fmt(na)}</b> entreprises
+        « ${label} » contre <b>${fmt(nb)}</b> à <b>${names[1]}</b>
+        <span class="muted">(totaux toutes activités : ${fmt(a.total)} et ${fmt(b.total)})</span>.
+        Détail dans le panneau.`;
+    } else {
+      text = `<b>${names[0]}</b> (${fmt(a.total)} entreprises) face à
+        <b>${names[1]}</b> (${fmt(b.total)}) : détail dans le panneau.`;
+    }
+    showAnswer(text + " " + AI_NOTE);
     return;
   }
 
@@ -557,13 +571,17 @@ function perThousand(c) {
 function comparePanel(panel) {
   const [a, b] = [pinned, selected];
   const ca = P.communes[a], cb = P.communes[b];
-  const unionTop = Object.entries(ca.sectors).concat(Object.entries(cb.sectors))
+  let unionTop = Object.entries(ca.sectors).concat(Object.entries(cb.sectors))
     .sort((x, y) => y[1] - x[1]).map(([id]) => id)
     .filter((id, i, arr) => arr.indexOf(id) === i).slice(0, 6);
+  // Le secteur comparé passe en tête, même s'il est petit dans les deux.
+  if (currentSector) {
+    unionTop = [currentSector, ...unionTop.filter(id => id !== currentSector)].slice(0, 6);
+  }
   const max = Math.max(...unionTop.map(id => Math.max(ca.sectors[id] || 0, cb.sectors[id] || 0)));
   const rows = unionTop.map(id => `
     <div class="bar-row">
-      <span class="name">${P.sectors[id].label}</span>
+      <span class="name${id === currentSector ? " hl" : ""}">${P.sectors[id].label}</span>
       <span class="bar-track"><span class="bar" data-w="${Math.max(1, 100 * (ca.sectors[id] || 0) / max)}"></span></span>
       <span class="val">${fmt(ca.sectors[id] || 0)}</span>
       <span class="bar-track"><span class="bar b" data-w="${Math.max(1, 100 * (cb.sectors[id] || 0) / max)}"></span></span>
